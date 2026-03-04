@@ -1,0 +1,6 @@
+[{
+  "origin": ["https://{username}.github.io", "http://localhost:5173"],
+  "method": ["GET", "HEAD"],
+  "responseHeader": ["Content-Type"],
+  "maxAgeSeconds": 3600
+}]

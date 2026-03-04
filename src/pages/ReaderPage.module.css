@@ -1,0 +1,145 @@
+/* Fullscreen reader — no sidebar/nav visible */
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #0e1022;
+  color: #f0f1f8;
+  overflow: hidden;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+}
+
+/* Top bar */
+.topBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #13152a;
+  border-bottom: 1px solid #2e3250;
+  flex-shrink: 0;
+}
+
+.topBtn {
+  background: transparent;
+  border: none;
+  color: #f0f1f8;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.topBtn:hover {
+  background: #2e3250;
+}
+
+.topCenter {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.topTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f0f1f8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.chapterSelect {
+  background: #1a1d2e;
+  border: 1px solid #2e3250;
+  border-radius: 6px;
+  color: #a0a4c8;
+  font-size: 12px;
+  padding: 3px 8px;
+  cursor: pointer;
+  max-width: 200px;
+}
+
+.topActions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* Content area — scrollable */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 20px 120px;
+  scrollbar-width: thin;
+  scrollbar-color: #2e3250 transparent;
+}
+
+@media (min-width: 768px) {
+  .content {
+    padding: 32px 15% 140px;
+  }
+}
+
+/* States */
+.loading {
+  text-align: center;
+  color: #7b7fa8;
+  padding: 3rem;
+  font-size: 15px;
+}
+
+.error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  gap: 16px;
+  color: #e05252;
+  font-size: 15px;
+  text-align: center;
+  padding: 24px;
+}
+
+.error button {
+  background: #2e3250;
+  color: #f0f1f8;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+/* Bookmark toast */
+.bookmarkToast {
+  position: absolute;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #6c6ff7;
+  color: #fff;
+  border-radius: 20px;
+  padding: 6px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 60;
+  pointer-events: none;
+  animation: fadeInOut 2s ease forwards;
+}
+
+@keyframes fadeInOut {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+  15%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+  80%  { opacity: 1; }
+  100% { opacity: 0; }
+}

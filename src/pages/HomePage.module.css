@@ -1,0 +1,140 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.loading {
+  color: #a0a4c8;
+  padding: 2rem;
+  text-align: center;
+}
+
+/* Hero */
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.heroLabel {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7b7fa8;
+}
+
+.heroCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 260px;
+}
+
+.continueBtn {
+  background: #6c6ff7;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.continueBtn:hover {
+  background: #5558e8;
+}
+
+/* Empty state */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 48px 24px;
+  text-align: center;
+  background: #1a1d2e;
+  border-radius: 16px;
+  border: 1px dashed #2e3250;
+}
+
+.emptyIcon {
+  font-size: 48px;
+}
+
+.emptyText {
+  color: #a0a4c8;
+  font-size: 15px;
+  margin: 0;
+}
+
+/* Section */
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #f0f1f8;
+  margin: 0;
+}
+
+.uploadShortcut {
+  background: transparent;
+  border: 1px solid #2e3250;
+  border-radius: 8px;
+  color: #a0a4c8;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.uploadShortcut:hover {
+  border-color: #6c6ff7;
+  color: #6c6ff7;
+}
+
+/* Recent row */
+.recentRow {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: #2e3250 transparent;
+}
+
+.recentItem {
+  flex: 0 0 160px;
+}
+
+/* Upload row */
+.uploadBtn {
+  background: #6c6ff7;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.uploadBtn:hover {
+  background: #5558e8;
+}
+
+.uploadRow {
+  display: flex;
+  justify-content: center;
+}

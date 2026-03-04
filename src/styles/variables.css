@@ -1,0 +1,20 @@
+:root {
+  --bg: #0e0f17;
+  --surface: #161824;
+  --surface2: #1e2130;
+  --surface3: #252840;
+  --border: rgba(255,255,255,0.07);
+  --text: #f0f1f8;
+  --text-dim: #8b8fa8;
+  --text-muted: #4a4e6a;
+  --accent: #7c6ef5;
+  --accent2: #f06292;
+  --accent3: #42d9c8;
+  --grad1: linear-gradient(135deg, #7c6ef5 0%, #f06292 100%);
+  --grad2: linear-gradient(135deg, #42d9c8 0%, #7c6ef5 100%);
+  --grad3: linear-gradient(135deg, #f06292 0%, #ff9a56 100%);
+  --shadow: 0 8px 32px rgba(0,0,0,0.4);
+  --shadow-accent: 0 8px 32px rgba(124,110,245,0.25);
+  --radius: 16px;
+  --radius-sm: 10px;
+}
