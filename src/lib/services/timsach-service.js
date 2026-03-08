@@ -19,28 +19,59 @@ export const GENRE_SLUG_MAP = {
   'Hài Hước': 'hai-huoc',
 };
 
-// Fetch books by genre from timsach.vn via API route
+// CORS proxy for client-side requests to timsach.vn
+const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+
+// Fetch HTML via CORS proxy
+async function fetchWithProxy(url) {
+  const res = await fetch(`${CORS_PROXY}${encodeURIComponent(url)}`);
+  if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+  return res.text();
+}
+
+// Parse book list from timsach.vn genre page HTML
+function parseBookList(html) {
+  const books = [];
+  const bookLinkRe = /href="https?:\/\/timsach\.vn\/book\/(\d+)-([^"]+)\.html"[^>]*title="([^"]*)"[^>]*>/g;
+  const imgRe = /src="(https:\/\/cdn\.supo\.vn\/timsach\/ebooks\/thumb\/[^"]+)"/g;
+  const authorRe = /href="https?:\/\/timsach\.vn\/tac-gia\/[^"]*"[^>]*title="([^"]*)"/g;
+  const linkMatches = [...html.matchAll(bookLinkRe)];
+  const imgMatches = [...html.matchAll(imgRe)];
+  const authorMatches = [...html.matchAll(authorRe)];
+  const seen = new Set();
+  for (let i = 0; i < linkMatches.length; i++) {
+    const [, id, slug, title] = linkMatches[i];
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const bookIndex = seen.size - 1;
+    const coverUrl = imgMatches[bookIndex]?.[1] || null;
+    const author = authorMatches[bookIndex]?.[1] || 'Khong ro';
+    books.push({ id, slug, title, author, coverUrl });
+  }
+  return books;
+}
+
+// Fetch books by genre from timsach.vn (client-side via CORS proxy)
 export async function fetchBooksByGenre(genreSlug, page = 1) {
-  const res = await fetch(`/api/timsach?genre=${genreSlug}&page=${page}`);
-  if (!res.ok) throw new Error('Failed to fetch books');
-  const data = await res.json();
-  return data.books;
+  const url = `https://timsach.vn/the-loai/${genreSlug}?sort=by_view&page=${page}`;
+  const html = await fetchWithProxy(url);
+  return parseBookList(html);
 }
 
 // Search books on timsach.vn
 export async function searchBooks(query) {
-  const res = await fetch(`/api/timsach/search?q=${encodeURIComponent(query)}`);
-  if (!res.ok) throw new Error('Search failed');
-  const data = await res.json();
-  return data.books;
+  const url = `https://timsach.vn/tim-kiem?q=${encodeURIComponent(query)}`;
+  const html = await fetchWithProxy(url);
+  return parseBookList(html);
 }
 
-// Get EPUB CDN URL for a book
+// Get EPUB CDN URL for a book by scraping its read page
 export async function getEpubDownloadUrl(bookId) {
-  const res = await fetch(`/api/timsach/download?id=${bookId}`);
-  if (!res.ok) throw new Error('Failed to get download URL');
-  const data = await res.json();
-  return data.epubUrl;
+  const url = `https://timsach.vn/doc-sach/${bookId}.html`;
+  const html = await fetchWithProxy(url);
+  const match = html.match(/href="(https:\/\/cdn\.supo\.vn\/timsach\/ebooks\/epub\/[^"]+\.epub)"/);
+  if (!match) throw new Error('EPUB URL not found');
+  return match[1];
 }
 
 // Download EPUB from CDN, parse it, and save to IndexedDB
