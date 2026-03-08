@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReadFlow Mockup</title>
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F5F0E8;
+    --surface: #FDFAF4;
+    --text: #1A1A1A;
+    --text-secondary: #5C5C5C;
+    --text-muted: #9A9A9A;
+    --accent: #C0392B;
+    --highlight-tts: #FFF3CD;
+    --highlight-border: #F39C12;
+    --bookmark: #F39C12;
+    --border: #E2DDD4;
+    --nav-bg: rgba(253, 250, 244, 0.92);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #E8E0D0;
+    display: flex;
+    gap: 32px;
+    padding: 40px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .screen-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: #5C5C5C;
+    text-align: center;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .phone {
+    width: 375px;
+    height: 812px;
+    background: var(--bg);
+    border-radius: 40px;
+    overflow: hidden;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05);
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .phone-inner {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding-top: 44px; /* status bar */
+  }
+
+  .status-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  /* ===== SCREEN 1: HOME / LIBRARY ===== */
+  .home-header {
+    padding: 16px 20px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg);
+  }
+
+  .home-header h1 {
+    font-family: 'Lora', serif;
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .home-header-icons {
+    display: flex;
+    gap: 16px;
+    color: var(--text-secondary);
+    font-size: 18px;
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px 8px;
+  }
+
+  .section-header h2 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .section-header span {
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .book-scroll {
+    display: flex;
+    gap: 12px;
+    padding: 8px 20px 16px;
+    overflow-x: auto;
+  }
+
+  .book-card {
+    flex-shrink: 0;
+    width: 100px;
+  }
+
+  .book-cover {
+    width: 100px;
+    height: 140px;
+    border-radius: 8px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .book-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .book-cover-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Lora', serif;
+    font-size: 11px;
+    color: white;
+    text-align: center;
+    padding: 8px;
+    line-height: 1.3;
+    font-weight: 600;
+  }
+
+  .cover-1 { background: linear-gradient(135deg, #667eea, #764ba2); }
+  .cover-2 { background: linear-gradient(135deg, #f093fb, #f5576c); }
+  .cover-3 { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+  .cover-4 { background: linear-gradient(135deg, #43e97b, #38f9d7); }
+  .cover-5 { background: linear-gradient(135deg, #fa709a, #fee140); }
+  .cover-6 { background: linear-gradient(135deg, #a18cd1, #fbc2eb); }
+
+  .book-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: rgba(0,0,0,0.2);
+  }
+
+  .book-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 0 2px 2px 0;
+  }
+
+  .book-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    margin-top: 6px;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .book-chapter {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .genre-chips {
+    display: flex;
+    gap: 8px;
+    padding: 8px 20px 16px;
+    overflow-x: auto;
+  }
+
+  .genre-chip {
+    flex-shrink: 0;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    background: var(--surface);
+  }
+
+  .genre-chip.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  .bottom-nav {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 80px;
+    background: var(--nav-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-around;
+    padding-top: 10px;
+    padding-bottom: 34px;
+  }
+
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .nav-item.active { color: var(--accent); }
+
+  .nav-icon {
+    font-size: 22px;
+  }
+
+  .home-content {
+    flex: 1;
+    overflow-y: auto;
+    padding-bottom: 80px;
+  }
+
+  /* ===== SCREEN 2: SEARCH ===== */
+  .search-bar {
+    margin: 12px 20px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    color: var(--text-muted);
+  }
+
+  .filter-row {
+    display: flex;
+    gap: 8px;
+    padding: 0 20px 12px;
+  }
+
+  .filter-btn {
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .search-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    padding: 0 20px 80px;
+  }
+
+  .search-card {
+    background: var(--surface);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .search-card-cover {
+    width: 100%;
+    height: 180px;
+  }
+
+  .search-card-info {
+    padding: 10px 12px;
+  }
+
+  .search-card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.3;
+    margin-bottom: 4px;
+  }
+
+  .search-card-author {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  .search-card-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .search-card-genre {
+    font-size: 10px;
+    padding: 2px 8px;
+    background: rgba(192, 57, 43, 0.1);
+    color: var(--accent);
+    border-radius: 4px;
+    font-weight: 500;
+  }
+
+  .search-card-chapters {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .download-btn {
+    margin: 8px 12px 12px;
+    padding: 8px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    width: calc(100% - 24px);
+    text-align: center;
+  }
+
+  /* ===== SCREEN 3: READER (LIGHT) ===== */
+  .reader-header {
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--nav-bg);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .reader-back {
+    font-size: 18px;
+    color: var(--text-secondary);
+    width: 36px;
+  }
+
+  .reader-chapter-select {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .reader-chapter-arrow {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .reader-actions {
+    display: flex;
+    gap: 16px;
+    font-size: 16px;
+    color: var(--text-secondary);
+  }
+
+  .reader-progress {
+    height: 2px;
+    background: var(--border);
+  }
+
+  .reader-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 35%;
+  }
+
+  .reader-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 24px 140px;
+    max-width: 680px;
+    margin: 0 auto;
+  }
+
+  .reader-chapter-title {
+    font-family: 'Lora', serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
+    text-align: center;
+    margin-bottom: 24px;
+    line-height: 1.4;
+  }
+
+  .reader-text {
+    font-family: 'Lora', serif;
+    font-size: 18px;
+    line-height: 1.8;
+    color: var(--text);
+  }
+
+  .reader-text p {
+    margin-bottom: 16px;
+    text-indent: 2em;
+  }
+
+  .sentence-highlight {
+    background: var(--highlight-tts);
+    border-left: 3px solid var(--highlight-border);
+    border-radius: 0 4px 4px 0;
+    padding: 2px 4px 2px 8px;
+    margin-left: -11px;
+  }
+
+  .sentence-bookmarked {
+    border-left: 2px solid var(--bookmark);
+    padding-left: 8px;
+    margin-left: -10px;
+  }
+
+  .tts-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 72px;
+    background: var(--nav-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 0 20px 16px;
+  }
+
+  .tts-btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 16px;
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+  }
+
+  .tts-btn.play {
+    width: 44px;
+    height: 44px;
+    background: var(--accent);
+    color: white;
+    font-size: 18px;
+  }
+
+  .tts-progress {
+    flex: 1;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    position: relative;
+    max-width: 120px;
+  }
+
+  .tts-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    width: 30%;
+  }
+
+  .tts-progress-dot {
+    position: absolute;
+    top: -4px;
+    left: 30%;
+    width: 12px;
+    height: 12px;
+    background: var(--accent);
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    transform: translateX(-50%);
+  }
+
+  .tts-speed {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: rgba(0,0,0,0.05);
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+
+  .tts-bookmark {
+    font-size: 18px;
+    color: var(--text-muted);
+  }
+
+  /* ===== SCREEN 4: READER DARK ===== */
+  .dark {
+    --bg: #1A1814;
+    --surface: #242018;
+    --text: #E8E0D0;
+    --text-secondary: #A89880;
+    --text-muted: #6B5F52;
+    --accent: #E74C3C;
+    --highlight-tts: #3D3000;
+    --highlight-border: #F39C12;
+    --border: #332E28;
+    --nav-bg: rgba(36, 32, 24, 0.92);
+  }
+
+  /* ===== SCREEN 5: READER SEPIA ===== */
+  .sepia {
+    --bg: #F4ECD8;
+    --surface: #F8F2E4;
+    --text: #3B2F1E;
+    --text-secondary: #6B5B48;
+    --text-muted: #9A8A72;
+    --accent: #8B4513;
+    --highlight-tts: #E8D5A0;
+    --highlight-border: #D4A030;
+    --border: #DDD4C0;
+    --nav-bg: rgba(244, 236, 216, 0.92);
+  }
+
+  /* ===== SCREEN 6: SETTINGS DROPDOWN ===== */
+  .settings-dropdown {
+    position: absolute;
+    top: 90px;
+    right: 12px;
+    width: 260px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    z-index: 10;
+  }
+
+  .settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+  }
+
+  .settings-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .settings-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .settings-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .settings-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    min-width: 28px;
+    text-align: center;
+  }
+
+  .settings-slider {
+    width: 80px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    position: relative;
+  }
+
+  .settings-slider-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+
+  .settings-slider-dot {
+    position: absolute;
+    top: -5px;
+    width: 14px;
+    height: 14px;
+    background: var(--accent);
+    border-radius: 50%;
+    border: 2px solid white;
+    transform: translateX(-50%);
+  }
+
+  .theme-row {
+    display: flex;
+    gap: 8px;
+    padding: 8px 0;
+  }
+
+  .theme-btn {
+    flex: 1;
+    padding: 8px;
+    border-radius: 8px;
+    border: 2px solid var(--border);
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .theme-btn.active-theme {
+    border-color: var(--accent);
+  }
+
+  .theme-light { background: #F5F0E8; color: #1A1A1A; }
+  .theme-dark { background: #1A1814; color: #E8E0D0; }
+  .theme-sepia { background: #F4ECD8; color: #3B2F1E; }
+
+  .settings-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 8px 0;
+  }
+
+  /* ===== CHAPTER DIVIDER ===== */
+  .chapter-divider {
+    text-align: center;
+    margin: 32px 0;
+    padding: 16px 0;
+    border-top: 1px dashed var(--border);
+  }
+
+  .chapter-divider-label {
+    font-family: 'Lora', serif;
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  /* ===== BOOKMARK POPUP ===== */
+  .bookmark-popup {
+    position: absolute;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 6px;
+    display: flex;
+    gap: 2px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    z-index: 10;
+  }
+
+  .bookmark-popup-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .bookmark-popup-btn:hover {
+    background: var(--bg);
+  }
+
+  .screen-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== SCREEN 1: HOME / LIBRARY ===== -->
+<div class="screen-wrapper">
+  <div class="screen-label">Home / Tủ Sách</div>
+  <div class="phone">
+    <div class="status-bar">
+      <span>9:41</span>
+      <span>⚡ 85%</span>
+    </div>
+    <div class="phone-inner">
+      <div class="home-header">
+        <h1>Tủ Sách</h1>
+        <div class="home-header-icons">
+          <span>🔍</span>
+          <span>⚙️</span>
+        </div>
+      </div>
+
+      <div class="home-content">
+        <div class="section-header">
+          <h2>Đang đọc</h2>
+          <span>Xem tất cả →</span>
+        </div>
+        <div class="book-scroll">
+          <div class="book-card">
+            <div class="book-cover">
+              <div class="book-cover-placeholder cover-1">Đấu Phá Thương Khung</div>
+              <div class="book-progress"><div class="book-progress-fill" style="width:72%"></div></div>
+            </div>
+            <div class="book-title">Đấu Phá Thương Khung</div>
+            <div class="book-chapter">Ch. 892 · 72%</div>
+          </div>
+          <div class="book-card">
+            <div class="book-cover">
+              <div class="book-cover-placeholder cover-2">Phàm Nhân Tu Tiên</div>
+              <div class="book-progress"><div class="book-progress-fill" style="width:35%"></div></div>
+            </div>
+            <div class="book-title">Phàm Nhân Tu Tiên</div>
+            <div class="book-chapter">Ch. 524 · 35%</div>
+          </div>
+          <div class="book-card">
+            <div class="book-cover">
+              <div class="book-cover-placeholder cover-3">Toàn Chức Pháp Sư</div>
+              <div class="book-progress"><div class="book-progress-fill" style="width:15%"></div></div>
+            </div>
+            <div class="book-title">Toàn Chức Pháp Sư</div>
+            <div class="book-chapter">Ch. 45 · 15%</div>
+          </div>
+        </div>
+
+        <div class="section-header">
+          <h2>Thể loại</h2>
+        </div>
+        <div class="genre-chips">
+          <div class="genre-chip active">Tất cả</div>
+          <div class="genre-chip">Tiên hiệp</div>
+          <div class="genre-chip">Kiếm hiệp</div>
+          <div class="genre-chip">Đô thị</div>
+          <div class="genre-chip">Huyền huyễn</div>
+        </div>
+
+        <div class="section-header">
+          <h2>Gần đây thêm</h2>
+          <span>Xem tất cả →</span>
+        </div>
+        <div class="book-scroll">
+          <div class="book-card">
+            <div class="book-cover">
+              <div class="book-cover-placeholder cover-4">Ngã Dục Phong Thiên</div>
+            </div>
+            <div class="book-title">Ngã Dục Phong Thiên</div>
+            <div class="book-chapter">1200 chương</div>
+          </div>
+          <div class="book-card">
+            <div class="book-cover">
+              <div class="book-cover-placeholder cover-5">Thần Đạo Đan Tôn</div>
+            </div>
+            <div class="book-title">Thần Đạo Đan Tôn</div>
+            <div class="book-chapter">856 chương</div>
+          </div>
+          <div class="book-card">
+            <div class="book-cover">
+              <div class="book-cover-placeholder cover-6">Vũ Động Càn Khôn</div>
+            </div>
+            <div class="book-title">Vũ Động Càn Khôn</div>
+            <div class="book-chapter">1320 chương</div>
+          </div>
+        </div>
+
+        <div class="section-header">
+          <h2>Đã đánh dấu</h2>
+          <span>12 truyện →</span>
+        </div>
+        <div class="book-scroll">
+          <div class="book-card">
+            <div class="book-cover">
+              <div class="book-cover-placeholder cover-3">Linh Vũ Thiên Hạ</div>
+            </div>
+            <div class="book-title">Linh Vũ Thiên Hạ</div>
+            <div class="book-chapter">2100 chương</div>
+          </div>
+          <div class="book-card">
+            <div class="book-cover">
+              <div class="book-cover-placeholder cover-1">Đại Chúa Tể</div>
+            </div>
+            <div class="book-title">Đại Chúa Tể</div>
+            <div class="book-chapter">1560 chương</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-nav">
+        <div class="nav-item active">
+          <span class="nav-icon">📚</span>
+          <span>Tủ sách</span>
+        </div>
+        <div class="nav-item">
+          <span class="nav-icon">🔍</span>
+          <span>Tìm kiếm</span>
+        </div>
+        <div class="nav-item">
+          <span class="nav-icon">🔖</span>
+          <span>Dấu trang</span>
+        </div>
+        <div class="nav-item">
+          <span class="nav-icon">⚙️</span>
+          <span>Cài đặt</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN 2: SEARCH ===== -->
+<div class="screen-wrapper">
+  <div class="screen-label">Tìm Kiếm</div>
+  <div class="phone">
+    <div class="status-bar">
+      <span>9:41</span>
+      <span>⚡ 85%</span>
+    </div>
+    <div class="phone-inner">
+      <div class="home-header">
+        <h1>Tìm kiếm</h1>
+        <div class="home-header-icons">
+          <span>✕</span>
+        </div>
+      </div>
+
+      <div class="search-bar">
+        <span>🔍</span>
+        <span>tiên hiệp</span>
+      </div>
+
+      <div class="filter-row">
+        <div class="filter-btn">Thể loại ▾</div>
+        <div class="filter-btn">Trạng thái ▾</div>
+        <div class="filter-btn">Nguồn ▾</div>
+      </div>
+
+      <div class="home-content" style="padding-bottom: 80px;">
+        <div class="search-grid">
+          <div class="search-card">
+            <div class="search-card-cover cover-1" style="display:flex;align-items:center;justify-content:center;color:white;font-family:Lora,serif;font-size:14px;font-weight:600;padding:12px;text-align:center;">Đấu Phá Thương Khung</div>
+            <div class="search-card-info">
+              <div class="search-card-title">Đấu Phá Thương Khung</div>
+              <div class="search-card-author">Thiên Tàm Thổ Đậu</div>
+              <div class="search-card-meta">
+                <span class="search-card-genre">Tiên hiệp</span>
+                <span class="search-card-chapters">1600 ch.</span>
+              </div>
+            </div>
+            <div class="download-btn">⬇ Tải EPUB</div>
+          </div>
+          <div class="search-card">
+            <div class="search-card-cover cover-2" style="display:flex;align-items:center;justify-content:center;color:white;font-family:Lora,serif;font-size:14px;font-weight:600;padding:12px;text-align:center;">Phàm Nhân Tu Tiên</div>
+            <div class="search-card-info">
+              <div class="search-card-title">Phàm Nhân Tu Tiên</div>
+              <div class="search-card-author">Vong Ngữ</div>
+              <div class="search-card-meta">
+                <span class="search-card-genre">Tiên hiệp</span>
+                <span class="search-card-chapters">2446 ch.</span>
+              </div>
+            </div>
+            <div class="download-btn">⬇ Tải EPUB</div>
+          </div>
+          <div class="search-card">
+            <div class="search-card-cover cover-4" style="display:flex;align-items:center;justify-content:center;color:white;font-family:Lora,serif;font-size:14px;font-weight:600;padding:12px;text-align:center;">Ngã Dục Phong Thiên</div>
+            <div class="search-card-info">
+              <div class="search-card-title">Ngã Dục Phong Thiên</div>
+              <div class="search-card-author">Nhĩ Căn</div>
+              <div class="search-card-meta">
+                <span class="search-card-genre">Tiên hiệp</span>
+                <span class="search-card-chapters">1200 ch.</span>
+              </div>
+            </div>
+            <div class="download-btn">⬇ Tải EPUB</div>
+          </div>
+          <div class="search-card">
+            <div class="search-card-cover cover-5" style="display:flex;align-items:center;justify-content:center;color:white;font-family:Lora,serif;font-size:14px;font-weight:600;padding:12px;text-align:center;">Tiên Nghịch</div>
+            <div class="search-card-info">
+              <div class="search-card-title">Tiên Nghịch</div>
+              <div class="search-card-author">Nhĩ Căn</div>
+              <div class="search-card-meta">
+                <span class="search-card-genre">Tiên hiệp</span>
+                <span class="search-card-chapters">2088 ch.</span>
+              </div>
+            </div>
+            <div class="download-btn">⬇ Tải EPUB</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-nav">
+        <div class="nav-item">
+          <span class="nav-icon">📚</span>
+          <span>Tủ sách</span>
+        </div>
+        <div class="nav-item active">
+          <span class="nav-icon">🔍</span>
+          <span>Tìm kiếm</span>
+        </div>
+        <div class="nav-item">
+          <span class="nav-icon">🔖</span>
+          <span>Dấu trang</span>
+        </div>
+        <div class="nav-item">
+          <span class="nav-icon">⚙️</span>
+          <span>Cài đặt</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN 3: READER LIGHT + SETTINGS ===== -->
+<div class="screen-wrapper">
+  <div class="screen-label">Reader — Light + Settings</div>
+  <div class="phone">
+    <div class="status-bar">
+      <span>9:41</span>
+      <span>⚡ 85%</span>
+    </div>
+    <div class="phone-inner">
+      <div class="reader-header">
+        <div class="reader-back">←</div>
+        <div class="reader-chapter-select">
+          Chương 12: Hội Ngộ <span class="reader-chapter-arrow">▾</span>
+        </div>
+        <div class="reader-actions">
+          <span style="background:rgba(192,57,43,0.1);padding:4px 8px;border-radius:6px;font-size:12px;font-weight:600;color:var(--accent);">Aa</span>
+          <span>⋮</span>
+        </div>
+      </div>
+      <div class="reader-progress"><div class="reader-progress-fill"></div></div>
+
+      <!-- Settings dropdown shown -->
+      <div class="settings-dropdown">
+        <div class="settings-row">
+          <span class="settings-label">Cỡ chữ</span>
+          <div class="settings-control">
+            <div class="settings-btn">A-</div>
+            <span class="settings-value">18</span>
+            <div class="settings-btn">A+</div>
+          </div>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">Font</span>
+          <div class="settings-control">
+            <span style="font-family:Lora,serif;font-size:14px;font-weight:500;color:var(--text);">Lora ▾</span>
+          </div>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">Dãn dòng</span>
+          <div class="settings-control">
+            <div class="settings-slider">
+              <div class="settings-slider-fill" style="width:60%"></div>
+              <div class="settings-slider-dot" style="left:60%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">Lề</span>
+          <div class="settings-control">
+            <div class="settings-slider">
+              <div class="settings-slider-fill" style="width:40%"></div>
+              <div class="settings-slider-dot" style="left:40%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="settings-divider"></div>
+        <div class="settings-row">
+          <span class="settings-label">Giao diện</span>
+        </div>
+        <div class="theme-row">
+          <div class="theme-btn theme-light active-theme">Sáng</div>
+          <div class="theme-btn theme-dark">Tối</div>
+          <div class="theme-btn theme-sepia">Sepia</div>
+        </div>
+        <div class="settings-divider"></div>
+        <div class="settings-row">
+          <span class="settings-label">Giọng TTS</span>
+          <div class="settings-control">
+            <span style="font-size:13px;color:var(--text);">Nữ Bắc ▾</span>
+          </div>
+        </div>
+        <div class="settings-row">
+          <span class="settings-label">Tốc độ</span>
+          <div class="settings-control">
+            <div class="settings-slider">
+              <div class="settings-slider-fill" style="width:50%"></div>
+              <div class="settings-slider-dot" style="left:50%"></div>
+            </div>
+            <span class="settings-value" style="font-size:12px">1x</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="reader-content" style="opacity: 0.4;">
+        <div class="reader-chapter-title">Chương 12: Hội Ngộ</div>
+        <div class="reader-text">
+          <p>Ánh nắng buổi sáng chiếu xuyên qua kẽ lá, tạo nên những vệt sáng lung linh trên mặt đất. Không khí trong lành phảng phất mùi hương hoa dại.</p>
+          <p>Lâm Phong đứng trước cổng Tông Môn, ánh mắt nhìn xa xăm về phía chân trời.</p>
+        </div>
+      </div>
+
+      <div class="tts-bar">
+        <button class="tts-btn">◀</button>
+        <button class="tts-btn play">▶</button>
+        <button class="tts-btn">▶▶</button>
+        <div class="tts-progress">
+          <div class="tts-progress-fill"></div>
+          <div class="tts-progress-dot"></div>
+        </div>
+        <span class="tts-speed">1x</span>
+        <span class="tts-bookmark">🔖</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN 4: READER LIGHT - TTS ACTIVE ===== -->
+<div class="screen-wrapper">
+  <div class="screen-label">Reader — TTS Active</div>
+  <div class="phone">
+    <div class="status-bar">
+      <span>9:41</span>
+      <span>⚡ 85%</span>
+    </div>
+    <div class="phone-inner">
+      <div class="reader-header">
+        <div class="reader-back">←</div>
+        <div class="reader-chapter-select">
+          Chương 12: Hội Ngộ <span class="reader-chapter-arrow">▾</span>
+        </div>
+        <div class="reader-actions">
+          <span style="font-size:14px;">Aa</span>
+          <span>⋮</span>
+        </div>
+      </div>
+      <div class="reader-progress"><div class="reader-progress-fill" style="width:42%"></div></div>
+
+      <div class="reader-content">
+        <div class="reader-chapter-title">Chương 12: Hội Ngộ</div>
+        <div class="reader-text">
+          <p>Ánh nắng buổi sáng chiếu xuyên qua kẽ lá, tạo nên những vệt sáng lung linh trên mặt đất. Không khí trong lành phảng phất mùi hương hoa dại.</p>
+          <p>Lâm Phong đứng trước cổng Tông Môn, ánh mắt nhìn xa xăm về phía chân trời. Hắn đã tu luyện suốt ba năm, và giờ đây cuối cùng cũng đạt được cảnh giới Ngưng Khí kỳ thứ chín.</p>
+          <p><span class="sentence-highlight">Cô gái dừng lại, nhìn xa xăm với ánh mắt trống rỗng, như thể đang tìm kiếm một điều gì đó đã mất từ lâu.</span></p>
+          <p>"Em ổn không?" Tuấn hỏi nhẹ nhàng, giọng đầy lo lắng. Hắn bước lại gần hơn, cố gắng nhìn vào đôi mắt cô.</p>
+          <p><span class="sentence-bookmarked">"Ta đã chờ đợi khoảnh khắc này suốt mười năm," lão nhân thở dài, đôi tay run rẩy nắm chặt thanh kiếm cổ.</span></p>
+          <p>Gió thổi mạnh, cuốn theo những chiếc lá vàng bay lả tả. Bầu trời phía tây nhuộm một màu đỏ rực, báo hiệu cơn bão sắp tới.</p>
+
+          <div class="chapter-divider">
+            <span class="chapter-divider-label">· · · Chương 13 · · ·</span>
+          </div>
+
+          <div class="reader-chapter-title" style="font-size:18px;">Chương 13: Chia Ly</div>
+          <p>Sáng sớm hôm sau, sương mù dày đặc bao phủ toàn bộ thung lũng. Lâm Phong thức dậy sớm, lặng lẽ thu dọn hành lý.</p>
+        </div>
+      </div>
+
+      <!-- Bookmark popup -->
+      <div class="bookmark-popup" style="top: 505px; left: 60px;">
+        <div class="bookmark-popup-btn">🔖 Lưu</div>
+        <div class="bookmark-popup-btn">📋 Sao chép</div>
+        <div class="bookmark-popup-btn">📤 Chia sẻ</div>
+      </div>
+
+      <div class="tts-bar">
+        <button class="tts-btn">◀</button>
+        <button class="tts-btn play">⏸</button>
+        <button class="tts-btn">▶▶</button>
+        <div class="tts-progress">
+          <div class="tts-progress-fill" style="width:45%"></div>
+          <div class="tts-progress-dot" style="left:45%"></div>
+        </div>
+        <span class="tts-speed">1x</span>
+        <span class="tts-bookmark" style="color:var(--bookmark)">🔖</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN 5: READER DARK ===== -->
+<div class="screen-wrapper">
+  <div class="screen-label">Reader — Dark Mode</div>
+  <div class="phone dark">
+    <div class="status-bar">
+      <span>9:41</span>
+      <span>⚡ 85%</span>
+    </div>
+    <div class="phone-inner">
+      <div class="reader-header">
+        <div class="reader-back">←</div>
+        <div class="reader-chapter-select">
+          Chương 12: Hội Ngộ <span class="reader-chapter-arrow">▾</span>
+        </div>
+        <div class="reader-actions">
+          <span style="font-size:14px;">Aa</span>
+          <span>⋮</span>
+        </div>
+      </div>
+      <div class="reader-progress"><div class="reader-progress-fill" style="width:35%"></div></div>
+
+      <div class="reader-content">
+        <div class="reader-chapter-title">Chương 12: Hội Ngộ</div>
+        <div class="reader-text">
+          <p>Ánh nắng buổi sáng chiếu xuyên qua kẽ lá, tạo nên những vệt sáng lung linh trên mặt đất. Không khí trong lành phảng phất mùi hương hoa dại.</p>
+          <p>Lâm Phong đứng trước cổng Tông Môn, ánh mắt nhìn xa xăm về phía chân trời. Hắn đã tu luyện suốt ba năm, và giờ đây cuối cùng cũng đạt được cảnh giới Ngưng Khí kỳ thứ chín.</p>
+          <p><span class="sentence-highlight">Cô gái dừng lại, nhìn xa xăm với ánh mắt trống rỗng, như thể đang tìm kiếm một điều gì đó đã mất từ lâu.</span></p>
+          <p>"Em ổn không?" Tuấn hỏi nhẹ nhàng, giọng đầy lo lắng. Hắn bước lại gần hơn, cố gắng nhìn vào đôi mắt cô.</p>
+          <p>"Ta đã chờ đợi khoảnh khắc này suốt mười năm," lão nhân thở dài, đôi tay run rẩy nắm chặt thanh kiếm cổ.</p>
+          <p>Gió thổi mạnh, cuốn theo những chiếc lá vàng bay lả tả. Bầu trời phía tây nhuộm một màu đỏ rực, báo hiệu cơn bão sắp tới.</p>
+        </div>
+      </div>
+
+      <div class="tts-bar">
+        <button class="tts-btn">◀</button>
+        <button class="tts-btn play">⏸</button>
+        <button class="tts-btn">▶▶</button>
+        <div class="tts-progress">
+          <div class="tts-progress-fill" style="width:35%"></div>
+          <div class="tts-progress-dot" style="left:35%"></div>
+        </div>
+        <span class="tts-speed">1.25x</span>
+        <span class="tts-bookmark">🔖</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN 6: READER SEPIA ===== -->
+<div class="screen-wrapper">
+  <div class="screen-label">Reader — Sepia Mode</div>
+  <div class="phone sepia">
+    <div class="status-bar">
+      <span>9:41</span>
+      <span>⚡ 85%</span>
+    </div>
+    <div class="phone-inner">
+      <div class="reader-header">
+        <div class="reader-back">←</div>
+        <div class="reader-chapter-select">
+          Chương 12: Hội Ngộ <span class="reader-chapter-arrow">▾</span>
+        </div>
+        <div class="reader-actions">
+          <span style="font-size:14px;">Aa</span>
+          <span>⋮</span>
+        </div>
+      </div>
+      <div class="reader-progress"><div class="reader-progress-fill" style="width:35%;background:#8B4513;"></div></div>
+
+      <div class="reader-content">
+        <div class="reader-chapter-title">Chương 12: Hội Ngộ</div>
+        <div class="reader-text">
+          <p>Ánh nắng buổi sáng chiếu xuyên qua kẽ lá, tạo nên những vệt sáng lung linh trên mặt đất. Không khí trong lành phảng phất mùi hương hoa dại.</p>
+          <p>Lâm Phong đứng trước cổng Tông Môn, ánh mắt nhìn xa xăm về phía chân trời. Hắn đã tu luyện suốt ba năm, và giờ đây cuối cùng cũng đạt được cảnh giới Ngưng Khí kỳ thứ chín.</p>
+          <p><span class="sentence-highlight">Cô gái dừng lại, nhìn xa xăm với ánh mắt trống rỗng, như thể đang tìm kiếm một điều gì đó đã mất từ lâu.</span></p>
+          <p>"Em ổn không?" Tuấn hỏi nhẹ nhàng, giọng đầy lo lắng. Hắn bước lại gần hơn, cố gắng nhìn vào đôi mắt cô.</p>
+          <p>"Ta đã chờ đợi khoảnh khắc này suốt mười năm," lão nhân thở dài, đôi tay run rẩy nắm chặt thanh kiếm cổ.</p>
+          <p>Gió thổi mạnh, cuốn theo những chiếc lá vàng bay lả tả. Bầu trời phía tây nhuộm một màu đỏ rực, báo hiệu cơn bão sắp tới.</p>
+        </div>
+      </div>
+
+      <div class="tts-bar">
+        <button class="tts-btn">◀</button>
+        <button class="tts-btn play">▶</button>
+        <button class="tts-btn">▶▶</button>
+        <div class="tts-progress">
+          <div class="tts-progress-fill" style="width:0%;background:#8B4513;"></div>
+          <div class="tts-progress-dot" style="left:0%;background:#8B4513;"></div>
+        </div>
+        <span class="tts-speed">1x</span>
+        <span class="tts-bookmark">🔖</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

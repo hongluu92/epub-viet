@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+/* ===== Light Theme (Default) ===== */
+:root {
+  --bg: #F5F0E8;
+  --surface: #FDFAF4;
+  --text: #1A1A1A;
+  --text-secondary: #5C5C5C;
+  --text-muted: #9A9A9A;
+  --accent: #C0392B;
+  --highlight-tts: #FFF3CD;
+  --highlight-border: #F39C12;
+  --bookmark: #F39C12;
+  --border: #E2DDD4;
+  --nav-bg: rgba(253, 250, 244, 0.92);
+}
+
+/* ===== Dark Theme ===== */
+[data-theme="dark"] {
+  --bg: #1A1814;
+  --surface: #242018;
+  --text: #E8E0D0;
+  --text-secondary: #A89880;
+  --text-muted: #6B5F52;
+  --accent: #E74C3C;
+  --highlight-tts: #3D3000;
+  --highlight-border: #F39C12;
+  --bookmark: #F39C12;
+  --border: #332E28;
+  --nav-bg: rgba(36, 32, 24, 0.92);
+}
+
+/* ===== Sepia Theme ===== */
+[data-theme="sepia"] {
+  --bg: #F4ECD8;
+  --surface: #F8F2E4;
+  --text: #3B2F1E;
+  --text-secondary: #6B5B48;
+  --text-muted: #9A8A72;
+  --accent: #8B4513;
+  --highlight-tts: #E8D5A0;
+  --highlight-border: #D4A030;
+  --bookmark: #D4A030;
+  --border: #DDD4C0;
+  --nav-bg: rgba(244, 236, 216, 0.92);
+}
+
+/* ===== Base Styles ===== */
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+/* ===== Reader Typography ===== */
+.reader-content {
+  font-family: var(--font-lora), 'Georgia', serif;
+  font-size: var(--reader-font-size, 18px);
+  line-height: var(--reader-line-height, 1.8);
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0 var(--reader-margin, 24px);
+}
+
+.reader-content p {
+  text-indent: 2em;
+  margin-bottom: 0.8em;
+}
+
+/* ===== Sentence Highlighting ===== */
+.sentence-span {
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background-color 0.15s;
+}
+
+.sentence-span.tts-active {
+  background-color: var(--highlight-tts);
+  box-shadow: 0 0 0 2px var(--highlight-border);
+}
+
+.sentence-span.bookmarked {
+  border-bottom: 2px solid var(--bookmark);
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
