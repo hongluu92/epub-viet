@@ -1,92 +1,62 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { BookOpen } from 'lucide-react';
 import { useLibraryStore } from '@/lib/stores/library-store';
 import UploadModal from '@/components/upload-modal';
-import Link from 'next/link';
+import HomeHeader from '@/components/home/home-header';
+import BookSection from '@/components/home/book-section';
+import GenreChips from '@/components/home/genre-chips';
 
 export default function HomePage() {
   const { books, isLoading, loadBooks } = useLibraryStore();
   const [showUpload, setShowUpload] = useState(false);
+  const [activeGenre, setActiveGenre] = useState('Tat ca');
 
-  useEffect(() => {
-    loadBooks();
-  }, [loadBooks]);
+  useEffect(() => { loadBooks(); }, [loadBooks]);
+
+  // Books currently being read (have progress), sorted by last read
+  const readingBooks = books
+    .filter((b) => b.readingProgress > 0)
+    .sort((a, b) => (b.lastReadAt ?? 0) - (a.lastReadAt ?? 0));
+
+  const isEmpty = books.length === 0;
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)', color: 'var(--text)' }}>
-      <div className="max-w-2xl mx-auto p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h1
-            className="text-2xl font-semibold"
-            style={{ fontFamily: 'var(--font-lora)' }}
-          >
-            ReadFlow
-          </h1>
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+      <HomeHeader onImport={() => setShowUpload(true)} />
+
+      <GenreChips activeGenre={activeGenre} onGenreChange={setActiveGenre} />
+
+      {isLoading ? (
+        <p className="px-4 py-8 text-center" style={{ color: 'var(--text-muted)' }}>
+          Dang tai...
+        </p>
+      ) : isEmpty ? (
+        /* Empty state */
+        <div className="flex flex-col items-center justify-center py-24 gap-4 px-4">
+          <BookOpen size={48} style={{ color: 'var(--text-muted)' }} />
+          <p className="text-lg font-medium" style={{ color: 'var(--text-secondary)' }}>
+            Chua co sach nao
+          </p>
+          <p className="text-sm text-center" style={{ color: 'var(--text-muted)' }}>
+            Nhan nut + de them sach EPUB vao thu vien
+          </p>
           <button
             onClick={() => setShowUpload(true)}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-white"
+            className="px-6 py-2.5 rounded-full text-sm font-medium text-white mt-2"
             style={{ backgroundColor: 'var(--accent)' }}
           >
-            + Import
+            Import sach
           </button>
         </div>
-
-        {/* Book list */}
-        {isLoading ? (
-          <p style={{ color: 'var(--text-muted)' }}>Loading...</p>
-        ) : books.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-lg mb-2" style={{ color: 'var(--text-secondary)' }}>
-              No books yet
-            </p>
-            <p style={{ color: 'var(--text-muted)' }}>
-              Tap &quot;Import&quot; to add an EPUB file
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {books.map((book) => (
-              <Link
-                key={book.id}
-                href={`/reader/${book.id}`}
-                className="flex gap-4 p-3 rounded-xl transition-colors"
-                style={{ backgroundColor: 'var(--surface)' }}
-              >
-                {/* Cover thumbnail */}
-                {book.coverUrl ? (
-                  <img
-                    src={book.coverUrl}
-                    alt=""
-                    className="w-14 h-20 rounded object-cover flex-shrink-0"
-                  />
-                ) : (
-                  <div
-                    className="w-14 h-20 rounded flex-shrink-0 flex items-center justify-center text-xs"
-                    style={{ backgroundColor: 'var(--border)', color: 'var(--text-muted)' }}
-                  >
-                    EPUB
-                  </div>
-                )}
-
-                {/* Book info */}
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-medium truncate">{book.title}</h3>
-                  <p className="text-sm truncate" style={{ color: 'var(--text-secondary)' }}>
-                    {book.author}
-                  </p>
-                  <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                    {book.chapterCount} chapters
-                    {book.readingProgress > 0 &&
-                      ` · ${Math.round(book.readingProgress * 100)}%`}
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
+      ) : (
+        <>
+          {readingBooks.length > 0 && (
+            <BookSection title="Dang doc" books={readingBooks} showViewAll />
+          )}
+        </>
+      )}
 
       <UploadModal isOpen={showUpload} onClose={() => setShowUpload(false)} />
     </div>

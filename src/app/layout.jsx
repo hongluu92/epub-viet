@@ -1,6 +1,7 @@
 import { Lora, Inter } from 'next/font/google';
 import '@/styles/globals.css';
 import ThemeWrapper from '@/components/theme-wrapper';
+import AppShell from '@/components/layout/app-shell';
 
 const lora = Lora({
   subsets: ['latin', 'vietnamese'],
@@ -26,7 +27,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="vi" className={`${lora.variable} ${inter.variable}`}>
       <body className="antialiased">
-        <ThemeWrapper>{children}</ThemeWrapper>
+        <ThemeWrapper>
+          <AppShell>{children}</AppShell>
+        </ThemeWrapper>
       </body>
     </html>
   );

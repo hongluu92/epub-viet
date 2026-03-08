@@ -9,8 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "firebase": "^12.10.0",
     "idb": "^8.0.3",
     "jszip": "^3.10.1",
+    "lucide-react": "^0.577.0",
     "next": "^16.1.6",
     "onnxruntime-web": "^1.24.3",
     "piper-wasm": "^0.1.4",

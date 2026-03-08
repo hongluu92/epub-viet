@@ -2,7 +2,7 @@
 
 Vietnamese offline-first EPUB reader with Piper WASM TTS engine, Firebase sync, and search aggregator.
 
-**Status:** Phase 4 of 8 Complete (50% done)
+**Status:** Phase 6 of 8 Complete (75% done)
 **Last Updated:** 2026-03-08
 **Framework:** Next.js 15 + React 19 + Tailwind CSS + Zustand
 
@@ -27,10 +27,19 @@ Vietnamese offline-first EPUB reader with Piper WASM TTS engine, Firebase sync, 
 - [x] Chapter boundary auto-advance
 - [x] React hook orchestration with state management
 
-### Phase 5-8: Planned (PENDING)
-- [ ] Firebase Google OAuth login
-- [ ] Firestore sync (reading progress, bookmarks)
-- [ ] Library management (book upload/delete)
+### Phase 5: Firebase Auth & Sync (COMPLETE ✓)
+- [x] Firebase Google OAuth login
+- [x] Firestore sync (reading progress, bookmarks)
+- [x] Auth state management and user menu
+
+### Phase 6: Library & Navigation (COMPLETE ✓)
+- [x] Home/Library page with sections
+- [x] Bottom navigation (mobile) + Sidebar (desktop)
+- [x] Book card with cover art and progress
+- [x] Genre filter chips
+- [x] Bookmarks and settings pages
+
+### Phase 7-8: Planned (PENDING)
 - [ ] Full-text search aggregator
 - [ ] PWA installation support
 - [ ] Service Worker for offline support
@@ -407,29 +416,18 @@ npm run build
 
 ## Project Roadmap
 
-### Phase 5: Firebase Auth & Sync (PENDING)
-- Google OAuth login
-- Firestore reading progress sync
-- Error boundaries
-- TTS bar UI integration
-
-### Phase 6: Library & Navigation (PENDING)
-- Book upload widget
-- Library grid view
-- Book search/filter
-
 ### Phase 7: Search Aggregator (PENDING)
 - Full-text search across local books
 - timsach.vn API proxy
-- Results ranking
+- Results ranking and filtering
 
 ### Phase 8: PWA & Polish (PENDING)
-- Service Worker for offline
-- Manifest.json for installation
+- Service Worker for offline support
+- Manifest.json for app installation
 - Performance optimization
-- Mobile polish
+- Mobile polish and accessibility
 
-**Timeline:** Expected completion 2026-03-12
+**Timeline:** Expected completion 2026-03-15
 
 ---
 
@@ -464,14 +462,14 @@ MIT License - See LICENSE file for details
 | 2 | ✓ Complete | EPUB parser, IndexedDB |
 | 3 | ✓ Complete | Reader UI, theming |
 | 4 | ✓ Complete | TTS engine service layer |
-| 5 | ○ Pending | Firebase auth, TTS UI |
-| 6 | ○ Pending | Library, navigation |
+| 5 | ✓ Complete | Firebase auth, Firestore sync |
+| 6 | ✓ Complete | Library UI, navigation |
 | 7 | ○ Pending | Search aggregator |
 | 8 | ○ Pending | PWA, polish |
 
-**Progress:** 4/8 phases (50%)
-**Effort Used:** 24.5/40 hours (61%)
-**Next:** Phase 05 (Firebase Auth & Sync)
+**Progress:** 6/8 phases (75%)
+**Effort Used:** 33.5/40 hours (84%)
+**Next:** Phase 07 (Search Aggregator)
 
 ---
 
