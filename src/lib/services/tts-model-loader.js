@@ -4,7 +4,7 @@
  */
 
 // ONNX model hosted on GitHub Releases (supports CORS, no size limit issues)
-const MODEL_URL = 'https://github.com/hongluu92/epub-viet/releases/download/v0.1.0/nh.onnx';
+const MODEL_URL = 'https://github.com/hongluu92/book-tts/releases/download/v0.1.0/nh.onnx';
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
 const MODEL_CONFIG_URL = `${BASE_PATH}/model/nh.onnx.json`;
 const CACHE_NAME = 'readflow-tts-model-v1';
