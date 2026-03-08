@@ -12,12 +12,16 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+const isConfigValid = firebaseConfig.apiKey && firebaseConfig.projectId;
+
+if (!isConfigValid) {
   console.warn('[Firebase] Missing NEXT_PUBLIC_FIREBASE_* env vars. Auth/sync disabled.');
 }
 
-// Use existing app or initialize new one (prevents duplicate app error in dev HMR)
-const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+// Only initialize Firebase when config is valid
+const app = isConfigValid
+  ? (getApps().length ? getApps()[0] : initializeApp(firebaseConfig))
+  : null;
 
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+export const auth = app ? getAuth(app) : null;
+export const db = app ? getFirestore(app) : null;

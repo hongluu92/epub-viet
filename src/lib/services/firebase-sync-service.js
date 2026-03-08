@@ -5,6 +5,9 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase-config';
 
+// Skip all sync operations when Firebase is not configured
+const isEnabled = () => db !== null;
+
 // Debounce helper to batch rapid writes
 function debounce(fn, ms) {
   let timer;
@@ -16,6 +19,7 @@ function debounce(fn, ms) {
 
 /** Write user settings to users/{uid}/settings/prefs */
 export const syncSettings = debounce(async (uid, settings) => {
+  if (!isEnabled()) return;
   try {
     await setDoc(doc(db, 'users', uid, 'settings', 'prefs'), {
       ...settings,
@@ -28,6 +32,7 @@ export const syncSettings = debounce(async (uid, settings) => {
 
 /** Write book reading progress to users/{uid}/books/{bookId} */
 export const syncBookProgress = debounce(async (uid, bookId, progress) => {
+  if (!isEnabled()) return;
   try {
     await setDoc(doc(db, 'users', uid, 'books', bookId), {
       ...progress,
@@ -40,6 +45,7 @@ export const syncBookProgress = debounce(async (uid, bookId, progress) => {
 
 /** Add or remove bookmark in users/{uid}/bookmarks/{key} */
 export async function syncBookmark(uid, bookmark, action) {
+  if (!isEnabled()) return;
   const key = `${bookmark.bookId}:${bookmark.chapterIndex}:${bookmark.paragraphIndex}:${bookmark.sentenceIndex}`;
   const ref = doc(db, 'users', uid, 'bookmarks', key);
   try {
@@ -57,6 +63,7 @@ export async function syncBookmark(uid, bookmark, action) {
  *  callbacks: { onSettings, onBooks, onBookmarks }
  *  Returns cleanup function that unsubscribes all listeners */
 export function subscribeToChanges(uid, callbacks) {
+  if (!isEnabled()) return () => {};
   const unsubs = [];
 
   if (callbacks.onSettings) {
@@ -84,6 +91,7 @@ export function subscribeToChanges(uid, callbacks) {
 
 /** Fetch all books metadata from Firestore for the user */
 export async function fetchLibrary(uid) {
+  if (!isEnabled()) return [];
   try {
     const snap = await getDocs(collection(db, 'users', uid, 'books'));
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));

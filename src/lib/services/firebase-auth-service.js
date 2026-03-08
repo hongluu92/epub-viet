@@ -7,6 +7,7 @@ const googleProvider = new GoogleAuthProvider();
 
 /** Sign in with Google popup */
 export async function signInWithGoogle() {
+  if (!auth) throw new Error('Firebase not configured');
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
@@ -18,6 +19,7 @@ export async function signInWithGoogle() {
 
 /** Sign out current user */
 export async function signOutUser() {
+  if (!auth) return;
   try {
     await signOut(auth);
   } catch (err) {
@@ -28,11 +30,13 @@ export async function signOutUser() {
 
 /** Subscribe to auth state changes, returns unsubscribe fn */
 export function onAuthStateChanged(callback) {
+  if (!auth) { callback(null); return () => {}; }
   return fbOnAuthStateChanged(auth, callback);
 }
 
 /** Delete all user Firestore data then delete Firebase auth account */
 export async function deleteUserAccount() {
+  if (!auth) throw new Error('Firebase not configured');
   const user = auth.currentUser;
   if (!user) throw new Error('No authenticated user');
   try {
