@@ -45,9 +45,10 @@ export default function TtsBar({ sentences, sentenceMap, chapterIndex }) {
   // Cycle speed: 0.75 → 1.0 → 1.25 → 1.5 → 2.0 → 0.75
   const handleSpeedCycle = () => {
     const speeds = [0.75, 1.0, 1.25, 1.5, 2.0];
-    const idx = speeds.indexOf(ttsSpeed);
-    const next = speeds[(idx + 1) % speeds.length];
-    setTtsSpeed(next);
+    // Find nearest preset >= current speed, or wrap to first
+    const idx = speeds.findIndex((s) => s >= ttsSpeed);
+    const nextIdx = idx === -1 ? 0 : (speeds[idx] === ttsSpeed ? (idx + 1) % speeds.length : idx);
+    setTtsSpeed(speeds[nextIdx]);
   };
 
   const speedLabel = ttsSpeed === 1.0 ? '1x' : `${ttsSpeed}x`;

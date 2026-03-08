@@ -91,10 +91,12 @@ export function useTts() {
     }
 
     setPlaying(true);
-    const speed = useAppStore.getState().ttsSpeed;
 
     for (let i = startIdx; i < sentences.length; i++) {
       if (abortRef.current) break;
+
+      // Read speed each iteration so mid-playback changes take effect
+      const speed = useAppStore.getState().ttsSpeed;
 
       // Use coordinate map to set correct paragraph/sentence for highlighting
       const coords = sentenceMap[i] || { paragraphIndex: 0, sentenceIndex: i };
