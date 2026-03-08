@@ -48,7 +48,7 @@ export default function SettingsDropdown({ onClose }) {
   return (
     <div
       ref={ref}
-      className="absolute top-full right-3 mt-1 w-64 rounded-2xl shadow-lg p-4 z-50"
+      className="absolute top-12 right-3 w-64 rounded-2xl shadow-lg p-4 z-50"
       style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}
     >
       {/* Font Size */}
