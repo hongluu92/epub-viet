@@ -9,8 +9,7 @@ const GENRES = Object.keys(GENRE_SLUG_MAP);
 export default function GenreChips({ activeGenre, onGenreChange }) {
   return (
     <div
-      className="flex gap-2 px-4 pb-3 overflow-x-auto"
-      style={{ scrollbarWidth: 'none' }}
+      className="flex flex-wrap gap-2 px-4 pb-3"
     >
       {GENRES.map((genre) => {
         const isActive = activeGenre === genre;
@@ -18,7 +17,7 @@ export default function GenreChips({ activeGenre, onGenreChange }) {
           <button
             key={genre}
             onClick={() => onGenreChange(genre)}
-            className="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors duration-200 border"
+            className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors duration-200 border"
             style={{
               backgroundColor: isActive ? 'var(--accent)' : 'var(--surface)',
               color: isActive ? '#fff' : 'var(--text)',
