@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { getBook, getChapter, getChaptersByBook } from '@/lib/services/indexeddb-service';
 import { useLibraryStore } from '@/lib/stores/library-store';
 import { useTts } from '@/hooks/use-tts';
@@ -12,8 +12,9 @@ import ReaderContent from '@/components/reader/reader-content';
 import BookmarkPopup from '@/components/reader/bookmark-popup';
 import TtsBar from '@/components/reader/tts-bar';
 
-export default function ReaderPage() {
-  const { id } = useParams();
+export default function ReaderPageClient() {
+  const searchParams = useSearchParams();
+  const id = searchParams.get('id');
   const [book, setBook] = useState(null);
   const [chapterMeta, setChapterMeta] = useState([]); // titles only
   const [loadedChapters, setLoadedChapters] = useState([]);

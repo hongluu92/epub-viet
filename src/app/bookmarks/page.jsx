@@ -27,7 +27,7 @@ export default function BookmarksPage() {
       ch: bm.chapterIndex,
       s: bm.sentenceIndex,
     });
-    router.push(`/reader/${bm.bookId}?${params}`);
+    router.push(`/reader?id=${bm.bookId}&${params}`);
   }
 
   return (

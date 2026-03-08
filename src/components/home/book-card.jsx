@@ -16,7 +16,7 @@ export default function BookCard({ book, onDownload, isDownloading, onDelete }) 
   const Wrapper = onDownload ? 'div' : Link;
   const wrapperProps = onDownload
     ? { className: 'flex-shrink-0 w-[100px]' }
-    : { href: `/reader/${book.id}`, className: 'flex-shrink-0 w-[100px]' };
+    : { href: `/reader?id=${book.id}`, className: 'flex-shrink-0 w-[100px]' };
 
   return (
     <Wrapper {...wrapperProps}>
