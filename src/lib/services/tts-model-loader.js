@@ -3,8 +3,10 @@
  * Serves model from /public/model/ directory.
  */
 
-const MODEL_URL = '/model/nh.onnx';
-const MODEL_CONFIG_URL = '/model/nh.onnx.json';
+// ONNX model hosted on Google Drive (too large for GitHub)
+const MODEL_URL = 'https://drive.google.com/uc?export=download&id=1RvnjbhO3coM3Np6oc9IeE3X7EWt8QUnX';
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
+const MODEL_CONFIG_URL = `${BASE_PATH}/model/nh.onnx.json`;
 const CACHE_NAME = 'readflow-tts-model-v1';
 
 let onnxSession = null;
@@ -20,7 +22,7 @@ export async function loadModel(onProgress) {
   const ort = await import('onnxruntime-web');
   console.log('[TTS] onnxruntime-web imported, configuring WASM...');
   ort.env.wasm.numThreads = 1;
-  ort.env.wasm.wasmPaths = '/';
+  ort.env.wasm.wasmPaths = `${BASE_PATH}/`;
 
   // Clear any stale cache that might have stored non-model data (e.g. 404 HTML)
   const cache = await caches.open(CACHE_NAME);

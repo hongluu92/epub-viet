@@ -89,3 +89,6 @@ external/
 # Git worktrees (local development only)
 worktrees/
 .claude/*
+
+# Large ONNX model (hosted on Google Drive)
+public/model/nh.onnx

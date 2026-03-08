@@ -8,11 +8,12 @@ import { PHONEME_ID_MAP, BOS_ID, EOS_ID } from '@/lib/utils/phoneme-id-map';
 
 const PAD_ID = PHONEME_ID_MAP['_'] ?? 0;
 const SPACE_ID = PHONEME_ID_MAP[' '] ?? 3;
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
 const PIPER_ASSET_BASE = 'https://cdn.jsdelivr.net/gh/DavidCks/piper-wasm@main/build';
-const PIPER_PHONEMIZE_JS_URL = '/piper/piper_phonemize.js';
+const PIPER_PHONEMIZE_JS_URL = `${BASE_PATH}/piper/piper_phonemize.js`;
 const PIPER_PHONEMIZE_WASM_URL = `${PIPER_ASSET_BASE}/piper_phonemize.wasm`;
 const PIPER_PHONEMIZE_DATA_URL = `${PIPER_ASSET_BASE}/piper_phonemize.data`;
-const PIPER_WORKER_URL = '/piper/piper_worker.js';
+const PIPER_WORKER_URL = `${BASE_PATH}/piper/piper_worker.js`;
 const ORT_BASE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/onnxruntime-web/1.17.1/';
 const piperBlobCache = {};
 
