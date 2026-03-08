@@ -56,12 +56,10 @@ export default function TtsBar({ sentences, sentenceMap, chapterIndex, totalChap
     <div
       className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-4 backdrop-blur-xl border-t"
       style={{
-        height: 72,
         background: 'var(--nav-bg)',
         borderColor: 'var(--border)',
-        paddingBottom: 16,
-        paddingLeft: 20,
-        paddingRight: 20,
+        padding: '12px 20px',
+        paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
         zIndex: 50,
       }}
     >
