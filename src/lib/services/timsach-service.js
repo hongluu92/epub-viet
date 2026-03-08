@@ -80,11 +80,24 @@ export async function fetchBooksByGenre(genreSlug, page = 1) {
   return parseBookList(html);
 }
 
-// Search books on timsach.vn
+// Search books across all genres (fetches top genres in parallel)
 export async function searchBooks(query) {
-  const url = `https://timsach.vn/tim-kiem?q=${encodeURIComponent(query)}`;
-  const html = await fetchWithProxy(url);
-  return parseBookList(html);
+  const q = query.toLowerCase();
+  const topGenres = Object.values(GENRE_SLUG_MAP).slice(0, 6);
+  const results = await Promise.allSettled(
+    topGenres.map(slug => fetchBooksByGenre(slug, 1))
+  );
+  const allBooks = results
+    .filter(r => r.status === 'fulfilled')
+    .flatMap(r => r.value);
+  // Deduplicate by id and filter by query
+  const seen = new Set();
+  return allBooks.filter(book => {
+    if (seen.has(book.id)) return false;
+    seen.add(book.id);
+    return book.title?.toLowerCase().includes(q) ||
+           book.author?.toLowerCase().includes(q);
+  });
 }
 
 // Get EPUB CDN URL for a book by scraping its read page
