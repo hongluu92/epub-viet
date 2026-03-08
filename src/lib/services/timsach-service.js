@@ -19,14 +19,26 @@ export const GENRE_SLUG_MAP = {
   'Hài Hước': 'hai-huoc',
 };
 
-// CORS proxy for client-side requests to timsach.vn
-const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+// CORS proxies with fallback (free proxies can be unreliable)
+const CORS_PROXIES = [
+  (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+  (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+];
 
-// Fetch HTML via CORS proxy
+// Fetch HTML via CORS proxy with automatic fallback
 async function fetchWithProxy(url) {
-  const res = await fetch(`${CORS_PROXY}${encodeURIComponent(url)}`);
-  if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
-  return res.text();
+  let lastErr;
+  for (const makeProxyUrl of CORS_PROXIES) {
+    try {
+      const res = await fetch(makeProxyUrl(url));
+      if (!res.ok) throw new Error(`${res.status}`);
+      return await res.text();
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw new Error(`All CORS proxies failed: ${lastErr?.message}`);
 }
 
 // Parse book list from timsach.vn genre page HTML
