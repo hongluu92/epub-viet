@@ -19,35 +19,36 @@ export const GENRE_SLUG_MAP = {
   'Hài Hước': 'hai-huoc',
 };
 
-// CORS proxies with fallback (free proxies can be unreliable)
-const CORS_PROXIES = [
+// Cloudflare Worker proxy (primary) + free fallbacks
+const CF_PROXY = 'https://timsach-proxy.honglm1011.workers.dev/?url=';
+const FALLBACK_PROXIES = [
   (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
   (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-  (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
 ];
 
-const FETCH_TIMEOUT = 10000; // 10s timeout per proxy attempt
+const FETCH_TIMEOUT = 10000;
 
-// Fetch HTML via CORS proxy with timeout, retry, and fallback
-async function fetchWithProxy(url, retries = 1) {
+// Fetch HTML via proxy with timeout and fallback
+async function fetchWithProxy(url) {
+  const proxies = [
+    () => `${CF_PROXY}${encodeURIComponent(url)}`,
+    ...FALLBACK_PROXIES.map(fn => () => fn(url)),
+  ];
   let lastErr;
-  for (const makeProxyUrl of CORS_PROXIES) {
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      try {
-        const res = await fetch(makeProxyUrl(url), {
-          signal: AbortSignal.timeout(FETCH_TIMEOUT),
-        });
-        if (!res.ok) throw new Error(`${res.status}`);
-        const text = await res.text();
-        // Validate we got actual HTML, not an error page
-        if (text.length < 100 || !text.includes('<')) throw new Error('Invalid response');
-        return text;
-      } catch (err) {
-        lastErr = err;
-      }
+  for (const makeUrl of proxies) {
+    try {
+      const res = await fetch(makeUrl(), {
+        signal: AbortSignal.timeout(FETCH_TIMEOUT),
+      });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const text = await res.text();
+      if (text.length < 100 || !text.includes('<')) throw new Error('Invalid response');
+      return text;
+    } catch (err) {
+      lastErr = err;
     }
   }
-  throw new Error(`All CORS proxies failed: ${lastErr?.message}`);
+  throw new Error(`All proxies failed: ${lastErr?.message}`);
 }
 
 // Parse book list from timsach.vn genre page HTML
