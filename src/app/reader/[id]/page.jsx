@@ -113,11 +113,26 @@ export default function ReaderPage() {
     );
   }
 
-  // Flatten sentences from current visible chapter for TTS
+  // Flatten sentences and build coordinate map for TTS highlighting
   const currentChapter = loadedChapters.find((c) => c.chapterIndex === currentChapterIndex);
-  const flatSentences = currentChapter?.sentences
-    ? currentChapter.sentences.flat()
-    : currentChapter?.paragraphs || [];
+  const { flatSentences, sentenceMap } = (() => {
+    if (!currentChapter?.sentences) {
+      const paragraphs = currentChapter?.paragraphs || [];
+      return {
+        flatSentences: paragraphs,
+        sentenceMap: paragraphs.map((_, i) => ({ paragraphIndex: i, sentenceIndex: 0 })),
+      };
+    }
+    const flat = [];
+    const map = [];
+    currentChapter.sentences.forEach((paraSentences, pIdx) => {
+      paraSentences.forEach((sentence, sIdx) => {
+        flat.push(sentence);
+        map.push({ paragraphIndex: pIdx, sentenceIndex: sIdx });
+      });
+    });
+    return { flatSentences: flat, sentenceMap: map };
+  })();
 
   const hasMore =
     loadedChapters.length > 0 &&
@@ -153,7 +168,7 @@ export default function ReaderPage() {
         />
       )}
 
-      <TtsBar sentences={flatSentences} chapterIndex={currentChapterIndex} />
+      <TtsBar sentences={flatSentences} sentenceMap={sentenceMap} chapterIndex={currentChapterIndex} />
     </div>
   );
 }

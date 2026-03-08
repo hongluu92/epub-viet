@@ -67,12 +67,12 @@ export function useTts() {
 
   /**
    * Start playing from a specific position in the sentence list.
-   * @param {string[]} sentences - All sentences to play
+   * @param {string[]} sentences - All sentences to play (flat array)
    * @param {number} startIdx - Index to start from
    * @param {number} chapterIdx - Current chapter index
-   * @param {number} paragraphIdx - Current paragraph index
+   * @param {Array<{paragraphIndex: number, sentenceIndex: number}>} sentenceMap - Maps flat index to 2D coordinates
    */
-  const play = useCallback(async (sentences, startIdx = 0, chapterIdx = 0, paragraphIdx = 0) => {
+  const play = useCallback(async (sentences, startIdx = 0, chapterIdx = 0, sentenceMap = []) => {
     if (!sentences?.length) return;
     abortRef.current = false;
 
@@ -96,7 +96,9 @@ export function useTts() {
     for (let i = startIdx; i < sentences.length; i++) {
       if (abortRef.current) break;
 
-      setPosition(chapterIdx, paragraphIdx, i);
+      // Use coordinate map to set correct paragraph/sentence for highlighting
+      const coords = sentenceMap[i] || { paragraphIndex: 0, sentenceIndex: i };
+      setPosition(chapterIdx, coords.paragraphIndex, coords.sentenceIndex, i);
 
       // Get or synthesize current sentence (skip empty)
       const cacheKey = `${i}-${speed}`;

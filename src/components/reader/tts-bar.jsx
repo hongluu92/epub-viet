@@ -8,13 +8,13 @@ import { useAppStore } from '@/lib/stores/app-store';
  * Bottom TTS control bar matching mockup design.
  * Shows: prev | play/pause | next | progress | speed | bookmark
  */
-export default function TtsBar({ sentences, chapterIndex }) {
+export default function TtsBar({ sentences, sentenceMap, chapterIndex }) {
   const { play, pause, resume, stop } = useTts();
-  const { isPlaying, isPaused, modelLoading, modelProgress, currentSentence } = useTtsStore();
+  const { isPlaying, isPaused, modelLoading, modelProgress, currentFlatIndex } = useTtsStore();
   const { ttsSpeed, setTtsSpeed } = useAppStore();
 
   const totalSentences = sentences?.length || 0;
-  const progress = totalSentences > 0 ? (currentSentence / totalSentences) * 100 : 0;
+  const progress = totalSentences > 0 ? (currentFlatIndex / totalSentences) * 100 : 0;
 
   const handlePlayPause = async () => {
     if (modelLoading) return;
@@ -23,23 +23,23 @@ export default function TtsBar({ sentences, chapterIndex }) {
     } else if (isPaused) {
       await resume();
     } else {
-      await play(sentences, 0, chapterIndex, 0);
+      await play(sentences, 0, chapterIndex, sentenceMap);
     }
   };
 
   // Skip to previous/next sentence
   const handlePrev = async () => {
     if (!isPlaying || !sentences?.length) return;
-    const prevIdx = Math.max(0, currentSentence - 1);
+    const prevIdx = Math.max(0, currentFlatIndex - 1);
     stop();
-    await play(sentences, prevIdx, chapterIndex, 0);
+    await play(sentences, prevIdx, chapterIndex, sentenceMap);
   };
 
   const handleNext = async () => {
     if (!isPlaying || !sentences?.length) return;
-    const nextIdx = Math.min(sentences.length - 1, currentSentence + 1);
+    const nextIdx = Math.min(sentences.length - 1, currentFlatIndex + 1);
     stop();
-    await play(sentences, nextIdx, chapterIndex, 0);
+    await play(sentences, nextIdx, chapterIndex, sentenceMap);
   };
 
   // Cycle speed: 0.75 → 1.0 → 1.25 → 1.5 → 2.0 → 0.75

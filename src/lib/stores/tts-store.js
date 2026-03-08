@@ -9,6 +9,7 @@ export const useTtsStore = create((set) => ({
   currentChapter: 0,
   currentParagraph: 0,
   currentSentence: 0,
+  currentFlatIndex: 0,
 
   // Model loading state
   modelLoaded: false,
@@ -21,8 +22,8 @@ export const useTtsStore = create((set) => ({
   setModelLoading: (modelLoading) => set({ modelLoading }),
   setModelProgress: (modelProgress) => set({ modelProgress }),
 
-  setPosition: (chapter, paragraph, sentence) =>
-    set({ currentChapter: chapter, currentParagraph: paragraph, currentSentence: sentence }),
+  setPosition: (chapter, paragraph, sentence, flatIndex = 0) =>
+    set({ currentChapter: chapter, currentParagraph: paragraph, currentSentence: sentence, currentFlatIndex: flatIndex }),
 
   reset: () =>
     set({
@@ -31,5 +32,6 @@ export const useTtsStore = create((set) => ({
       currentChapter: 0,
       currentParagraph: 0,
       currentSentence: 0,
+      currentFlatIndex: 0,
     }),
 }));
