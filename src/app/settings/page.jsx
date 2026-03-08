@@ -3,8 +3,7 @@
 import { useAppStore } from '@/lib/stores/app-store';
 import { useLibraryStore } from '@/lib/stores/library-store';
 import { useAuth } from '@/hooks/use-auth';
-import { LoginButton } from '@/components/auth/login-button';
-import { UserMenu } from '@/components/auth/user-menu';
+import { LoginButton, UserMenu } from '@/components/auth';
 
 function SectionHeader({ title }) {
   return (

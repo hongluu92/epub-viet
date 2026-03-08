@@ -1,7 +1,7 @@
 import { Lora, Inter } from 'next/font/google';
 import '@/styles/globals.css';
 import ThemeWrapper from '@/components/theme-wrapper';
-import AppShell from '@/components/layout/app-shell';
+import { AppShell } from '@/components/layout';
 
 const lora = Lora({
   subsets: ['latin', 'vietnamese'],

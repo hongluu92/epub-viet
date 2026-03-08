@@ -1,64 +1,169 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { BookOpen } from 'lucide-react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useLibraryStore } from '@/lib/stores/library-store';
-import UploadModal from '@/components/upload-modal';
-import HomeHeader from '@/components/home/home-header';
-import BookSection from '@/components/home/book-section';
-import GenreChips from '@/components/home/genre-chips';
+import { useEpubUpload } from '@/components/upload-modal';
+import { HomeHeader, BookSection, BookCard, GenreChips } from '@/components/home';
+import {
+  GENRE_SLUG_MAP, fetchBooksByGenre, downloadAndImportEpub, searchBooks,
+} from '@/lib/services/timsach-service';
+
+const firstGenre = Object.keys(GENRE_SLUG_MAP)[0];
 
 export default function HomePage() {
-  const { books, isLoading, loadBooks } = useLibraryStore();
-  const [showUpload, setShowUpload] = useState(false);
-  const [activeGenre, setActiveGenre] = useState('Tat ca');
+  const { books, isLoading, loadBooks, removeBook } = useLibraryStore();
+  const addBookToStore = useLibraryStore((s) => s.addBook);
+  const { triggerUpload, UploadProgress } = useEpubUpload();
+  const [activeGenre, setActiveGenre] = useState(firstGenre);
+
+  // Timsach browse state
+  const [browseBooks, setBrowseBooks] = useState([]);
+  const [browseLoading, setBrowseLoading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState(null);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchTimer = useRef(null);
 
   useEffect(() => { loadBooks(); }, [loadBooks]);
 
-  // Books currently being read (have progress), sorted by last read
-  const readingBooks = books
-    .filter((b) => b.readingProgress > 0)
-    .sort((a, b) => (b.lastReadAt ?? 0) - (a.lastReadAt ?? 0));
+  // Debounced search
+  useEffect(() => {
+    clearTimeout(searchTimer.current);
+    if (searchQuery.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    setSearchLoading(true);
+    searchTimer.current = setTimeout(() => {
+      searchBooks(searchQuery.trim())
+        .then(setSearchResults)
+        .catch(() => setSearchResults([]))
+        .finally(() => setSearchLoading(false));
+    }, 500);
+    return () => clearTimeout(searchTimer.current);
+  }, [searchQuery]);
 
-  const isEmpty = books.length === 0;
+  // Fetch timsach books when genre changes
+  useEffect(() => {
+    const slug = GENRE_SLUG_MAP[activeGenre];
+    if (!slug) return;
+
+    setBrowseLoading(true);
+    fetchBooksByGenre(slug)
+      .then(setBrowseBooks)
+      .catch(() => setBrowseBooks([]))
+      .finally(() => setBrowseLoading(false));
+  }, [activeGenre]);
+
+  // Download and import a timsach book
+  const handleDownload = useCallback(async (book) => {
+    if (downloadingId) return;
+    setDownloadingId(book.id);
+    try {
+      const metadata = await downloadAndImportEpub(book);
+      addBookToStore(metadata);
+    } catch (err) {
+      console.error('Download failed:', err);
+    } finally {
+      setDownloadingId(null);
+    }
+  }, [downloadingId, addBookToStore]);
+
+  const isSearching = searchQuery.trim().length >= 2;
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
-      <HomeHeader onImport={() => setShowUpload(true)} />
+      <HomeHeader
+        onImport={() => triggerUpload()}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+      />
 
-      <GenreChips activeGenre={activeGenre} onGenreChange={setActiveGenre} />
-
-      {isLoading ? (
-        <p className="px-4 py-8 text-center" style={{ color: 'var(--text-muted)' }}>
-          Dang tai...
-        </p>
-      ) : isEmpty ? (
-        /* Empty state */
-        <div className="flex flex-col items-center justify-center py-24 gap-4 px-4">
-          <BookOpen size={48} style={{ color: 'var(--text-muted)' }} />
-          <p className="text-lg font-medium" style={{ color: 'var(--text-secondary)' }}>
-            Chua co sach nao
-          </p>
-          <p className="text-sm text-center" style={{ color: 'var(--text-muted)' }}>
-            Nhan nut + de them sach EPUB vao thu vien
-          </p>
-          <button
-            onClick={() => setShowUpload(true)}
-            className="px-6 py-2.5 rounded-full text-sm font-medium text-white mt-2"
-            style={{ backgroundColor: 'var(--accent)' }}
-          >
-            Import sach
-          </button>
-        </div>
+      {isSearching ? (
+        /* Search results */
+        <section className="mb-6">
+          <div className="px-4 mb-3">
+            <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>
+              Ket qua tim kiem
+            </h2>
+          </div>
+          {searchLoading ? (
+            <p className="px-4 py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+              Dang tim...
+            </p>
+          ) : searchResults.length === 0 ? (
+            <p className="px-4 py-4 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+              Khong tim thay sach
+            </p>
+          ) : (
+            <div
+              className="flex gap-3 px-4 pb-2 overflow-x-auto flex-wrap"
+              style={{ scrollbarWidth: 'none' }}
+            >
+              {searchResults.map((book) => (
+                <BookCard
+                  key={book.id}
+                  book={book}
+                  onDownload={handleDownload}
+                  isDownloading={downloadingId === book.id}
+                />
+              ))}
+            </div>
+          )}
+        </section>
       ) : (
         <>
-          {readingBooks.length > 0 && (
-            <BookSection title="Dang doc" books={readingBooks} showViewAll />
+          <GenreChips activeGenre={activeGenre} onGenreChange={setActiveGenre} />
+
+          {/* Library section */}
+          {!isLoading && books.length > 0 && (
+            <BookSection
+              title="Tu sach"
+              books={books}
+              showViewAll
+              onDelete={(book) => removeBook(book.id)}
+            />
           )}
+
+          {/* Timsach browse section */}
+          <section className="mb-6">
+            <div className="flex items-center justify-between px-4 mb-3">
+              <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>
+                {activeGenre}
+              </h2>
+            </div>
+
+            {browseLoading ? (
+              <p className="px-4 py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+                Dang tai sach...
+              </p>
+            ) : browseBooks.length === 0 ? (
+              <p className="px-4 py-4 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+                Khong tim thay sach
+              </p>
+            ) : (
+              <div
+                className="flex gap-3 px-4 pb-2 overflow-x-auto flex-wrap"
+                style={{ scrollbarWidth: 'none' }}
+              >
+                {browseBooks.map((book) => (
+                  <BookCard
+                    key={book.id}
+                    book={book}
+                    onDownload={handleDownload}
+                    isDownloading={downloadingId === book.id}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
         </>
       )}
 
-      <UploadModal isOpen={showUpload} onClose={() => setShowUpload(false)} />
+      <UploadProgress />
     </div>
   );
 }

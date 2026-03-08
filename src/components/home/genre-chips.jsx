@@ -1,6 +1,9 @@
 'use client';
 
-const GENRES = ['Tat ca', 'Tien hiep', 'Kiem hiep', 'Do thi', 'Huyen huyen', 'Ngon tinh'];
+import { GENRE_SLUG_MAP } from '@/lib/services/timsach-service';
+
+// Popular genres from timsach.vn
+const GENRES = Object.keys(GENRE_SLUG_MAP);
 
 // Horizontal scrollable genre filter pills.
 export default function GenreChips({ activeGenre, onGenreChange }) {

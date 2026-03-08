@@ -1,20 +1,27 @@
 'use client';
 
 import Link from 'next/link';
+import { ArrowDownToLine, Loader2, X } from 'lucide-react';
 import BookCover from './book-cover';
 
 // Book card for horizontal scroll sections.
 // Shows cover with progress bar, title, and chapter count.
-export default function BookCard({ book }) {
+// When onDownload is provided, shows download button instead of linking to reader.
+export default function BookCard({ book, onDownload, isDownloading, onDelete }) {
   const progress = book.readingProgress ?? 0;
   const chapterInfo = book.currentChapterIndex != null
     ? `Ch. ${book.currentChapterIndex + 1}`
-    : `${book.chapterCount ?? 0} chuong`;
+    : book.chapterCount ? `${book.chapterCount} chuong` : (book.author || '');
+
+  const Wrapper = onDownload ? 'div' : Link;
+  const wrapperProps = onDownload
+    ? { className: 'flex-shrink-0 w-[100px]' }
+    : { href: `/reader/${book.id}`, className: 'flex-shrink-0 w-[100px]' };
 
   return (
-    <Link href={`/reader/${book.id}`} className="flex-shrink-0 w-[100px]">
-      {/* Cover + progress bar */}
-      <div className="relative" style={{ width: 100, height: 140 }}>
+    <Wrapper {...wrapperProps}>
+      {/* Cover + progress bar + download button */}
+      <div className="relative group" style={{ width: 100, height: 140 }}>
         <BookCover
           coverUrl={book.coverUrl}
           title={book.title}
@@ -38,6 +45,33 @@ export default function BookCard({ book }) {
             />
           </div>
         )}
+        {/* Download button overlay */}
+        {onDownload && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDownload(book); }}
+            disabled={isDownloading}
+            className="absolute bottom-1 right-1 w-7 h-7 rounded-full flex items-center justify-center"
+            style={{ backgroundColor: 'var(--accent)', color: '#fff' }}
+          >
+            {isDownloading
+              ? <Loader2 size={14} className="animate-spin" />
+              : <ArrowDownToLine size={14} />}
+          </button>
+        )}
+        {/* Delete button overlay - visible on hover */}
+        {onDelete && (
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (window.confirm(`Xoa "${book.title}" khoi thu vien?`)) onDelete(book);
+            }}
+            className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ backgroundColor: 'rgba(0,0,0,0.6)', color: '#fff' }}
+          >
+            <X size={12} />
+          </button>
+        )}
       </div>
 
       {/* Book info */}
@@ -58,6 +92,6 @@ export default function BookCard({ book }) {
           {chapterInfo}
         </p>
       </div>
-    </Link>
+    </Wrapper>
   );
 }

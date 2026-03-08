@@ -1,8 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import Sidebar from './sidebar';
-import BottomNav from './bottom-nav';
+import { Sidebar, BottomNav } from '@/components/layout';
 
 // AppShell wraps page content with responsive navigation.
 // Sidebar shown >= 768px, BottomNav shown < 768px.

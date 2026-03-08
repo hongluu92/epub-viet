@@ -2,11 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BookOpen, Search, Bookmark, Settings } from 'lucide-react';
+import { BookOpen, Bookmark, Settings } from 'lucide-react';
 
 const NAV_ITEMS = [
   { label: 'Tu sach', icon: BookOpen, href: '/' },
-  { label: 'Tim kiem', icon: Search, href: '/search' },
   { label: 'Dau trang', icon: Bookmark, href: '/bookmarks' },
   { label: 'Cai dat', icon: Settings, href: '/settings' },
 ];

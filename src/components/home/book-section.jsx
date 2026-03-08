@@ -3,7 +3,7 @@
 import BookCard from './book-card';
 
 // Horizontal scrollable section with title and optional "view all" link.
-export default function BookSection({ title, books, showViewAll = false }) {
+export default function BookSection({ title, books, showViewAll = false, onDelete }) {
   if (!books || books.length === 0) return null;
 
   return (
@@ -27,7 +27,7 @@ export default function BookSection({ title, books, showViewAll = false }) {
       >
         <style>{`.book-section-scroll::-webkit-scrollbar { display: none; }`}</style>
         {books.map((book) => (
-          <BookCard key={book.id} book={book} />
+          <BookCard key={book.id} book={book} onDelete={onDelete} />
         ))}
       </div>
     </section>
