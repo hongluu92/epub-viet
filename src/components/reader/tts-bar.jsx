@@ -8,7 +8,7 @@ import { useAppStore } from '@/lib/stores/app-store';
  * Bottom TTS control bar matching mockup design.
  * Shows: prev | play/pause | next | progress | speed | bookmark
  */
-export default function TtsBar({ sentences, sentenceMap, chapterIndex }) {
+export default function TtsBar({ sentences, sentenceMap, chapterIndex, totalChapters, onChapterChange }) {
   const { play, pause, resume, stop } = useTts();
   const { isPlaying, isPaused, modelLoading, modelProgress, currentFlatIndex } = useTtsStore();
   const { ttsSpeed, setTtsSpeed } = useAppStore();
@@ -27,19 +27,17 @@ export default function TtsBar({ sentences, sentenceMap, chapterIndex }) {
     }
   };
 
-  // Skip to previous/next sentence
-  const handlePrev = async () => {
-    if (!isPlaying || !sentences?.length) return;
-    const prevIdx = Math.max(0, currentFlatIndex - 1);
+  // Navigate to previous/next chapter and auto-play first sentence
+  const handlePrevChapter = async () => {
+    if (chapterIndex <= 0) return;
     stop();
-    await play(sentences, prevIdx, chapterIndex, sentenceMap);
+    onChapterChange?.(chapterIndex - 1);
   };
 
-  const handleNext = async () => {
-    if (!isPlaying || !sentences?.length) return;
-    const nextIdx = Math.min(sentences.length - 1, currentFlatIndex + 1);
+  const handleNextChapter = async () => {
+    if (chapterIndex >= totalChapters - 1) return;
     stop();
-    await play(sentences, nextIdx, chapterIndex, sentenceMap);
+    onChapterChange?.(chapterIndex + 1);
   };
 
   // Cycle speed: 0.75 → 1.0 → 1.25 → 1.5 → 2.0 → 0.75
@@ -66,12 +64,13 @@ export default function TtsBar({ sentences, sentenceMap, chapterIndex }) {
         zIndex: 50,
       }}
     >
-      {/* Prev */}
+      {/* Prev Chapter */}
       <button
-        onClick={handlePrev}
+        onClick={handlePrevChapter}
         className="w-9 h-9 flex items-center justify-center rounded-full"
-        style={{ color: 'var(--text-secondary)' }}
-        aria-label="Previous sentence"
+        style={{ color: chapterIndex <= 0 ? 'var(--text-muted)' : 'var(--text-secondary)' }}
+        aria-label="Previous chapter"
+        disabled={chapterIndex <= 0}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
           <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
@@ -100,12 +99,13 @@ export default function TtsBar({ sentences, sentenceMap, chapterIndex }) {
         )}
       </button>
 
-      {/* Next */}
+      {/* Next Chapter */}
       <button
-        onClick={handleNext}
+        onClick={handleNextChapter}
         className="w-9 h-9 flex items-center justify-center rounded-full"
-        style={{ color: 'var(--text-secondary)' }}
-        aria-label="Next sentence"
+        style={{ color: chapterIndex >= totalChapters - 1 ? 'var(--text-muted)' : 'var(--text-secondary)' }}
+        aria-label="Next chapter"
+        disabled={chapterIndex >= totalChapters - 1}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
           <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />

@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { getBook, getChapter, getChaptersByBook } from '@/lib/services/indexeddb-service';
 import { useLibraryStore } from '@/lib/stores/library-store';
+import { useTts } from '@/hooks/use-tts';
 import ReaderHeader from '@/components/reader/reader-header';
 import ReadingProgressBar from '@/components/reader/reading-progress-bar';
 import SettingsDropdown from '@/components/reader/settings-dropdown';
@@ -23,6 +24,8 @@ export default function ReaderPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const updateBookProgress = useLibraryStore((s) => s.updateBookProgress);
+  const { play, stop: stopTts } = useTts();
+  const autoPlayChapterRef = useRef(null);
 
   // Load book and first chapter
   useEffect(() => {
@@ -70,16 +73,17 @@ export default function ReaderPage() {
     }
   }, [book, loadedChapters]);
 
-  // Jump to chapter
+  // Jump to chapter — stop TTS and clear state first
   const handleChapterSelect = useCallback(async (index) => {
     if (!book) return;
+    stopTts();
     const chapter = await getChapter(book.id, index);
     if (chapter) {
       setLoadedChapters([chapter]);
       setCurrentChapterIndex(index);
       updateBookProgress(book.id, { currentChapter: index, readingProgress: index / book.chapterCount });
     }
-  }, [book, updateBookProgress]);
+  }, [book, updateBookProgress, stopTts]);
 
   // Update current chapter when scrolling through chapters
   const handleVisibleChapterChange = useCallback((chapterIndex) => {
@@ -96,6 +100,53 @@ export default function ReaderPage() {
   const handleScrollProgress = useCallback((progress) => {
     setScrollProgress(progress);
   }, []);
+
+  // Change chapter from TtsBar — stop TTS, clear state, load new chapter, auto-play
+  const handleTtsChapterChange = useCallback(async (index) => {
+    if (!book) return;
+    stopTts();
+    const chapter = await getChapter(book.id, index);
+    if (!chapter) return;
+
+    setLoadedChapters([chapter]);
+    setCurrentChapterIndex(index);
+    updateBookProgress(book.id, { currentChapter: index, readingProgress: index / book.chapterCount });
+
+    // Mark for auto-play after state updates
+    autoPlayChapterRef.current = index;
+  }, [book, updateBookProgress, stopTts]);
+
+  // Auto-play first sentence when chapter changes via TtsBar
+  useEffect(() => {
+    if (autoPlayChapterRef.current === null) return;
+    if (autoPlayChapterRef.current !== currentChapterIndex) return;
+
+    const chapter = loadedChapters.find((c) => c.chapterIndex === currentChapterIndex);
+    if (!chapter) return;
+
+    // Build flat sentences + map for the new chapter
+    let flat, map;
+    if (chapter.sentences) {
+      flat = [];
+      map = [];
+      chapter.sentences.forEach((paraSentences, pIdx) => {
+        paraSentences.forEach((sentence, sIdx) => {
+          flat.push(sentence);
+          map.push({ paragraphIndex: pIdx, sentenceIndex: sIdx });
+        });
+      });
+    } else {
+      const paragraphs = chapter.paragraphs || [];
+      flat = paragraphs;
+      map = paragraphs.map((_, i) => ({ paragraphIndex: i, sentenceIndex: 0 }));
+    }
+
+    if (flat.length > 0) {
+      play(flat, 0, currentChapterIndex, map);
+    }
+
+    autoPlayChapterRef.current = null;
+  }, [loadedChapters, currentChapterIndex, play]);
 
   if (isLoading) {
     return (
@@ -139,7 +190,7 @@ export default function ReaderPage() {
     loadedChapters[loadedChapters.length - 1].chapterIndex < book.chapterCount - 1;
 
   return (
-    <div className="h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)' }}>
+    <div className="h-screen flex flex-col relative" style={{ backgroundColor: 'var(--bg)' }}>
       <ReaderHeader
         book={book}
         chapters={chapterMeta}
@@ -161,6 +212,7 @@ export default function ReaderPage() {
         onLongPressSentence={(data) => setPopupData(data)}
       />
 
+
       {popupData && (
         <BookmarkPopup
           sentenceData={popupData}
@@ -168,7 +220,13 @@ export default function ReaderPage() {
         />
       )}
 
-      <TtsBar sentences={flatSentences} sentenceMap={sentenceMap} chapterIndex={currentChapterIndex} />
+      <TtsBar
+        sentences={flatSentences}
+        sentenceMap={sentenceMap}
+        chapterIndex={currentChapterIndex}
+        totalChapters={book.chapterCount}
+        onChapterChange={handleTtsChapterChange}
+      />
     </div>
   );
 }
