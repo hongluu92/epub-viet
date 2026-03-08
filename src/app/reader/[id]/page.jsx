@@ -9,6 +9,7 @@ import ReadingProgressBar from '@/components/reader/reading-progress-bar';
 import SettingsDropdown from '@/components/reader/settings-dropdown';
 import ReaderContent from '@/components/reader/reader-content';
 import BookmarkPopup from '@/components/reader/bookmark-popup';
+import TtsBar from '@/components/reader/tts-bar';
 
 export default function ReaderPage() {
   const { id } = useParams();
@@ -112,6 +113,12 @@ export default function ReaderPage() {
     );
   }
 
+  // Flatten sentences from current visible chapter for TTS
+  const currentChapter = loadedChapters.find((c) => c.chapterIndex === currentChapterIndex);
+  const flatSentences = currentChapter?.sentences
+    ? currentChapter.sentences.flat()
+    : currentChapter?.paragraphs || [];
+
   const hasMore =
     loadedChapters.length > 0 &&
     loadedChapters[loadedChapters.length - 1].chapterIndex < book.chapterCount - 1;
@@ -145,6 +152,8 @@ export default function ReaderPage() {
           onClose={() => setPopupData(null)}
         />
       )}
+
+      <TtsBar sentences={flatSentences} chapterIndex={currentChapterIndex} />
     </div>
   );
 }

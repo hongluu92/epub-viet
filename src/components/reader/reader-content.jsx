@@ -82,7 +82,7 @@ export default function ReaderContent({
       style={{ backgroundColor: 'var(--bg)' }}
     >
       <div
-        className="reader-content py-6"
+        className="reader-content py-6 pb-20"
         style={{
           '--reader-font-size': `${fontSize}px`,
           '--reader-line-height': String(lineHeight),
