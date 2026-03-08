@@ -49,8 +49,12 @@ export default function ReaderHeader({ book, chapters, currentChapterIndex, onCh
       {/* Settings (Aa) button */}
       <button
         onClick={onToggleSettings}
-        className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-sm font-semibold"
-        style={{ color: 'var(--text)' }}
+        className="flex-shrink-0 flex items-center justify-center rounded-md text-xs font-semibold"
+        style={{
+          color: 'var(--accent)',
+          background: 'rgba(192,57,43,0.1)',
+          padding: '4px 8px',
+        }}
         aria-label="Reading settings"
       >
         Aa

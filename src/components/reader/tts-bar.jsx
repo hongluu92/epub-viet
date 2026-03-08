@@ -10,14 +10,15 @@ import { useAppStore } from '@/lib/stores/app-store';
  */
 export default function TtsBar({ sentences, sentenceMap, chapterIndex, totalChapters, onChapterChange }) {
   const { play, pause, resume, stop } = useTts();
-  const { isPlaying, isPaused, modelLoading, modelProgress, currentFlatIndex } = useTtsStore();
+  const { isPlaying, isPaused, modelLoading, modelProgress, preparing, currentFlatIndex } = useTtsStore();
   const { ttsSpeed, setTtsSpeed } = useAppStore();
 
   const totalSentences = sentences?.length || 0;
   const progress = totalSentences > 0 ? (currentFlatIndex / totalSentences) * 100 : 0;
+  const showLoading = modelLoading || preparing;
 
   const handlePlayPause = async () => {
-    if (modelLoading) return;
+    if (showLoading) return;
     if (isPlaying && !isPaused) {
       await pause();
     } else if (isPaused) {
@@ -83,10 +84,14 @@ export default function TtsBar({ sentences, sentenceMap, chapterIndex, totalChap
         className="w-11 h-11 flex items-center justify-center rounded-full"
         style={{ background: 'var(--accent)', color: 'white' }}
         aria-label={isPlaying && !isPaused ? 'Pause' : 'Play'}
-        disabled={modelLoading}
+        disabled={showLoading}
       >
         {modelLoading ? (
           <span className="text-xs font-semibold">{modelProgress}%</span>
+        ) : preparing ? (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="animate-spin">
+            <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
+          </svg>
         ) : isPlaying && !isPaused ? (
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <rect x="6" y="4" width="4" height="16" rx="1" />
@@ -157,6 +162,7 @@ export default function TtsBar({ sentences, sentenceMap, chapterIndex, totalChap
       >
         {speedLabel}
       </button>
+
     </div>
   );
 }

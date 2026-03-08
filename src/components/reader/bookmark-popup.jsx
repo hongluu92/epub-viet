@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useAppStore } from '@/lib/stores/app-store';
 
-export default function BookmarkPopup({ sentenceData, onClose }) {
+export default function BookmarkPopup({ sentenceData, bookId, onPlayFrom, onClose }) {
   const ref = useRef(null);
 
   useEffect(() => {
@@ -51,11 +52,29 @@ export default function BookmarkPopup({ sentenceData, onClose }) {
         border: '1px solid var(--border)',
       }}
     >
-      <button onClick={handleCopy} className={btnClass} style={{ color: 'var(--text)' }}>
-        Copy
+      <button onClick={() => {
+        useAppStore.getState().addBookmark({
+          bookId,
+          chapterIndex: sentenceData.chapterIndex,
+          paragraphIndex: sentenceData.paragraphIndex,
+          sentenceIndex: sentenceData.sentenceIndex,
+          text: sentenceData.text?.trim() || '',
+        });
+        onClose();
+      }} className={btnClass} style={{ color: 'var(--text)' }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline', marginRight: 4 }}>
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+        </svg>
+        Luu
       </button>
-      <button onClick={handleShare} className={btnClass} style={{ color: 'var(--text)' }}>
-        Share
+      <button onClick={() => {
+        onPlayFrom?.(sentenceData);
+        onClose();
+      }} className={btnClass} style={{ color: 'var(--accent)' }}>
+        Doc tu day
+      </button>
+      <button onClick={handleCopy} className={btnClass} style={{ color: 'var(--text)' }}>
+        Sao chep
       </button>
     </div>
   );

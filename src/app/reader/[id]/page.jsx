@@ -205,6 +205,7 @@ export default function ReaderPage() {
 
       <ReaderContent
         loadedChapters={loadedChapters}
+        bookId={book.id}
         onLoadNext={loadNextChapter}
         hasMore={hasMore}
         onScrollProgress={handleScrollProgress}
@@ -216,6 +217,17 @@ export default function ReaderPage() {
       {popupData && (
         <BookmarkPopup
           sentenceData={popupData}
+          bookId={book.id}
+          onPlayFrom={(data) => {
+            // Find flat index for the selected sentence
+            const flatIdx = sentenceMap.findIndex(
+              (m) => m.paragraphIndex === data.paragraphIndex && m.sentenceIndex === data.sentenceIndex
+            );
+            if (flatIdx >= 0) {
+              stopTts();
+              play(flatSentences, flatIdx, currentChapterIndex, sentenceMap);
+            }
+          }}
           onClose={() => setPopupData(null)}
         />
       )}

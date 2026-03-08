@@ -23,8 +23,8 @@ export function useTts() {
   const abortRef = useRef(false);
 
   const {
-    isPlaying, isPaused, modelLoaded, modelLoading, modelProgress,
-    setPlaying, setPaused, setModelLoaded, setModelLoading, setModelProgress,
+    isPlaying, isPaused, modelLoaded, modelLoading, modelProgress, preparing,
+    setPlaying, setPaused, setPreparing, setModelLoaded, setModelLoading, setModelProgress,
     setPosition, reset,
   } = useTtsStore();
 
@@ -75,6 +75,7 @@ export function useTts() {
   const play = useCallback(async (sentences, startIdx = 0, chapterIdx = 0, sentenceMap = []) => {
     if (!sentences?.length) return;
     abortRef.current = false;
+    setPreparing(true);
 
     // Ensure model is loaded
     if (!useTtsStore.getState().modelLoaded) {
@@ -156,7 +157,7 @@ export function useTts() {
   }, [setPlaying, reset]);
 
   return {
-    isPlaying, isPaused, modelLoaded, modelLoading, modelProgress,
+    isPlaying, isPaused, preparing, modelLoaded, modelLoading, modelProgress,
     loadModel, play, pause: pauseTts, resume: resumeTts, stop: stopTts,
   };
 }

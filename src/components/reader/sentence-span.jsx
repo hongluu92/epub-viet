@@ -2,19 +2,26 @@
 
 import { useRef, useCallback, useEffect } from 'react';
 import { useTtsStore } from '@/lib/stores/tts-store';
+import { useAppStore } from '@/lib/stores/app-store';
 
-export default function SentenceSpan({ text, chapterIndex, paragraphIndex, sentenceIndex, onLongPress }) {
+export default function SentenceSpan({ text, bookId, chapterIndex, paragraphIndex, sentenceIndex, onLongPress }) {
   const timerRef = useRef(null);
   const movedRef = useRef(false);
   const spanRef = useRef(null);
 
   const { currentChapter, currentParagraph, currentSentence, isPlaying } = useTtsStore();
+  const bookmarks = useAppStore((s) => s.bookmarks);
 
   const isActive =
     isPlaying &&
     currentChapter === chapterIndex &&
     currentParagraph === paragraphIndex &&
     currentSentence === sentenceIndex;
+
+  const isBookmarked = bookmarks.some((b) =>
+    b.bookId === bookId && b.chapterIndex === chapterIndex &&
+    b.paragraphIndex === paragraphIndex && b.sentenceIndex === sentenceIndex
+  );
 
   // Auto-scroll to active sentence during TTS playback
   useEffect(() => {
@@ -44,7 +51,7 @@ export default function SentenceSpan({ text, chapterIndex, paragraphIndex, sente
   return (
     <span
       ref={spanRef}
-      className={`sentence-span ${isActive ? 'tts-active' : ''}`}
+      className={`sentence-span ${isActive ? 'tts-active' : ''} ${isBookmarked ? 'bookmarked' : ''}`}
       data-chapter={chapterIndex}
       data-paragraph={paragraphIndex}
       data-sentence={sentenceIndex}

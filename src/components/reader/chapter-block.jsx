@@ -2,7 +2,7 @@
 
 import SentenceSpan from './sentence-span';
 
-export default function ChapterBlock({ chapter, onLongPressSentence }) {
+export default function ChapterBlock({ chapter, bookId, onLongPressSentence }) {
   return (
     <div className="mb-8">
       {/* Chapter title */}
@@ -20,6 +20,7 @@ export default function ChapterBlock({ chapter, onLongPressSentence }) {
             <SentenceSpan
               key={sIdx}
               text={sentence + ' '}
+              bookId={bookId}
               chapterIndex={chapter.chapterIndex}
               paragraphIndex={pIdx}
               sentenceIndex={sIdx}

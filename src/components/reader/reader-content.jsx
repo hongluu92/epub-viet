@@ -8,6 +8,7 @@ import ChapterDivider from './chapter-divider';
 
 export default function ReaderContent({
   loadedChapters,
+  bookId,
   onLoadNext,
   hasMore,
   onScrollProgress,
@@ -95,6 +96,7 @@ export default function ReaderContent({
             {idx > 0 && <ChapterDivider />}
             <ChapterBlock
               chapter={chapter}
+              bookId={bookId}
               onLongPressSentence={onLongPressSentence}
             />
           </div>

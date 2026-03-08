@@ -2,13 +2,23 @@
 
 import { useEffect, useRef } from 'react';
 import { useAppStore } from '@/lib/stores/app-store';
-import { THEMES } from '@/lib/utils/theme-tokens';
+import { FONT_FAMILIES, THEMES } from '@/lib/utils/theme-tokens';
+
+const THEME_LABELS = { light: 'Sang', dark: 'Toi', sepia: 'Sepia' };
+const THEME_COLORS = {
+  light: { bg: '#F5F0E8', text: '#1A1A1A' },
+  dark: { bg: '#1A1814', text: '#E8E0D0' },
+  sepia: { bg: '#F4ECD8', text: '#3B2F1E' },
+};
+const FONT_LABELS = { lora: 'Lora', 'system-serif': 'Serif', 'system-sans': 'Sans' };
+const FONT_KEYS = Object.keys(FONT_FAMILIES);
 
 export default function SettingsDropdown({ onClose }) {
   const ref = useRef(null);
   const {
     theme, setTheme,
     fontSize, setFontSize,
+    fontFamily, setFontFamily,
     lineHeight, setLineHeight,
     readerMargin, setReaderMargin,
     ttsSpeed, setTtsSpeed,
@@ -25,95 +35,118 @@ export default function SettingsDropdown({ onClose }) {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [onClose]);
 
-  const labelStyle = { color: 'var(--text-muted)', fontSize: '12px', marginBottom: '6px' };
-  const sectionClass = 'py-3 border-b';
-  const borderStyle = { borderColor: 'var(--border)' };
+  // Cycle font family
+  const handleFontCycle = () => {
+    const idx = FONT_KEYS.indexOf(fontFamily);
+    setFontFamily(FONT_KEYS[(idx + 1) % FONT_KEYS.length]);
+  };
+
+  const rowClass = 'flex items-center justify-between py-2';
+  const labelStyle = { color: 'var(--text-secondary)', fontSize: 13, fontWeight: 500 };
+  const divider = <div className="my-2" style={{ height: 1, background: 'var(--border)' }} />;
 
   return (
     <div
       ref={ref}
-      className="absolute top-full right-4 mt-1 w-72 rounded-xl shadow-lg p-4 z-50"
+      className="absolute top-full right-3 mt-1 w-64 rounded-2xl shadow-lg p-4 z-50"
       style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}
     >
       {/* Font Size */}
-      <div className={sectionClass} style={borderStyle}>
-        <p style={labelStyle}>Font Size</p>
-        <div className="flex items-center gap-3">
+      <div className={rowClass}>
+        <span style={labelStyle}>Co chu</span>
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setFontSize(fontSize - 1)}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-lg"
-            style={{ backgroundColor: 'var(--bg)', color: 'var(--text)' }}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold"
+            style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
           >
             A-
           </button>
-          <span className="text-sm font-medium flex-1 text-center" style={{ color: 'var(--text)' }}>
-            {fontSize}px
+          <span className="text-sm font-semibold min-w-7 text-center" style={{ color: 'var(--text)' }}>
+            {fontSize}
           </span>
           <button
             onClick={() => setFontSize(fontSize + 1)}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-lg"
-            style={{ backgroundColor: 'var(--bg)', color: 'var(--text)' }}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold"
+            style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
           >
             A+
           </button>
         </div>
       </div>
 
+      {/* Font Family */}
+      <div className={rowClass}>
+        <span style={labelStyle}>Font</span>
+        <button onClick={handleFontCycle} className="text-sm font-medium" style={{ color: 'var(--text)' }}>
+          {FONT_LABELS[fontFamily] || 'Lora'} <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>&#9662;</span>
+        </button>
+      </div>
+
       {/* Line Height */}
-      <div className={sectionClass} style={borderStyle}>
-        <p style={labelStyle}>Line Height: {lineHeight.toFixed(1)}</p>
+      <div className={rowClass}>
+        <span style={labelStyle}>Dan dong</span>
         <input
           type="range" min="1.4" max="2.4" step="0.1"
           value={lineHeight}
           onChange={(e) => setLineHeight(parseFloat(e.target.value))}
-          className="w-full accent-current"
+          className="w-20"
           style={{ accentColor: 'var(--accent)' }}
         />
       </div>
 
       {/* Margin */}
-      <div className={sectionClass} style={borderStyle}>
-        <p style={labelStyle}>Margin: {readerMargin}px</p>
+      <div className={rowClass}>
+        <span style={labelStyle}>Le</span>
         <input
           type="range" min="8" max="48" step="4"
           value={readerMargin}
           onChange={(e) => setReaderMargin(parseInt(e.target.value))}
-          className="w-full"
+          className="w-20"
           style={{ accentColor: 'var(--accent)' }}
         />
       </div>
 
+      {divider}
+
       {/* Theme */}
-      <div className={sectionClass} style={borderStyle}>
-        <p style={labelStyle}>Theme</p>
-        <div className="flex gap-2">
+      <div className="py-2">
+        <span style={labelStyle}>Giao dien</span>
+        <div className="flex gap-2 mt-2">
           {THEMES.map((t) => (
             <button
               key={t}
               onClick={() => setTheme(t)}
-              className="flex-1 py-2 rounded-lg text-xs font-medium capitalize border-2 transition-colors"
+              className="flex-1 py-2 rounded-lg text-xs font-semibold border-2 transition-colors"
               style={{
                 borderColor: theme === t ? 'var(--accent)' : 'var(--border)',
-                backgroundColor: theme === t ? 'var(--accent)' : 'var(--bg)',
-                color: theme === t ? '#fff' : 'var(--text-secondary)',
+                backgroundColor: THEME_COLORS[t].bg,
+                color: THEME_COLORS[t].text,
               }}
             >
-              {t}
+              {THEME_LABELS[t]}
             </button>
           ))}
         </div>
       </div>
 
+      {divider}
+
       {/* TTS Speed */}
-      <div className="pt-3">
-        <p style={labelStyle}>TTS Speed: {ttsSpeed.toFixed(1)}x</p>
-        <input
-          type="range" min="0.5" max="2.0" step="0.1"
-          value={ttsSpeed}
-          onChange={(e) => setTtsSpeed(parseFloat(e.target.value))}
-          className="w-full"
-          style={{ accentColor: 'var(--accent)' }}
-        />
+      <div className={rowClass}>
+        <span style={labelStyle}>Toc do</span>
+        <div className="flex items-center gap-2">
+          <input
+            type="range" min="0.5" max="2.0" step="0.1"
+            value={ttsSpeed}
+            onChange={(e) => setTtsSpeed(parseFloat(e.target.value))}
+            className="w-20"
+            style={{ accentColor: 'var(--accent)' }}
+          />
+          <span className="text-xs font-semibold min-w-7 text-center" style={{ color: 'var(--text)' }}>
+            {ttsSpeed === 1.0 ? '1x' : `${ttsSpeed.toFixed(1)}x`}
+          </span>
+        </div>
       </div>
     </div>
   );
