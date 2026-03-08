@@ -26,16 +26,25 @@ const CORS_PROXIES = [
   (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
 ];
 
-// Fetch HTML via CORS proxy with automatic fallback
-async function fetchWithProxy(url) {
+const FETCH_TIMEOUT = 10000; // 10s timeout per proxy attempt
+
+// Fetch HTML via CORS proxy with timeout, retry, and fallback
+async function fetchWithProxy(url, retries = 1) {
   let lastErr;
   for (const makeProxyUrl of CORS_PROXIES) {
-    try {
-      const res = await fetch(makeProxyUrl(url));
-      if (!res.ok) throw new Error(`${res.status}`);
-      return await res.text();
-    } catch (err) {
-      lastErr = err;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const res = await fetch(makeProxyUrl(url), {
+          signal: AbortSignal.timeout(FETCH_TIMEOUT),
+        });
+        if (!res.ok) throw new Error(`${res.status}`);
+        const text = await res.text();
+        // Validate we got actual HTML, not an error page
+        if (text.length < 100 || !text.includes('<')) throw new Error('Invalid response');
+        return text;
+      } catch (err) {
+        lastErr = err;
+      }
     }
   }
   throw new Error(`All CORS proxies failed: ${lastErr?.message}`);
