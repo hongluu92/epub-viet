@@ -51,23 +51,29 @@ export async function loadModel(onProgress) {
     }
 
     const contentLength = fetchResponse.headers.get('content-length');
-    const total = contentLength ? parseInt(contentLength, 10) : 0;
+    const total = contentLength ? parseInt(contentLength, 10) : 63500000; // ~60MB fallback
+    // Pre-allocate single buffer to avoid memory fragmentation
+    buffer = new ArrayBuffer(total);
+    const dest = new Uint8Array(buffer);
     const reader = fetchResponse.body.getReader();
-    const chunks = [];
     let received = 0;
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      chunks.push(value);
+      dest.set(value, received);
       received += value.length;
-      if (total > 0) onProgress?.(Math.round((received / total) * 90));
+      onProgress?.(Math.round((received / total) * 90));
     }
 
-    const blob = new Blob(chunks);
-    await cache.put(MODEL_URL, new Response(blob.slice(0)));
+    // Trim if actual size differs from content-length
+    if (received !== total) {
+      buffer = buffer.slice(0, received);
+    }
+
+    // Cache for next time
+    await cache.put(MODEL_URL, new Response(new Blob([buffer])));
     onProgress?.(95);
-    buffer = await blob.arrayBuffer();
   }
 
   console.log('[TTS] Creating ONNX session, buffer size:', buffer.byteLength);
