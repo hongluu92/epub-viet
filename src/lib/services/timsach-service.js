@@ -102,9 +102,10 @@ export async function searchBooks(query) {
 
 // Get EPUB CDN URL for a book by scraping its read page
 export async function getEpubDownloadUrl(bookId) {
-  const url = `https://timsach.vn/doc-sach/${bookId}.html`;
+  const url = `https://timsach.vn/book/read/${bookId}.html`;
   const html = await fetchWithProxy(url);
-  const match = html.match(/href="(https:\/\/cdn\.supo\.vn\/timsach\/ebooks\/epub\/[^"]+\.epub)"/);
+  // bookUrl is set as a JS variable in the reader page script
+  const match = html.match(/bookUrl:\s*"(https:\/\/cdn\.supo\.vn\/timsach\/ebooks\/[^"]+\.epub)"/);
   if (!match) throw new Error('EPUB URL not found');
   return match[1];
 }
@@ -117,8 +118,9 @@ export async function downloadAndImportEpub(bookInfo, onProgress = () => {}) {
   const epubUrl = await getEpubDownloadUrl(bookInfo.id);
   onProgress(0.2);
 
-  // Download EPUB blob
-  const epubRes = await fetch(epubUrl);
+  // Download EPUB blob via proxy (CDN lacks CORS headers)
+  const proxiedEpubUrl = `${CF_PROXY}${encodeURIComponent(epubUrl)}`;
+  const epubRes = await fetch(proxiedEpubUrl);
   if (!epubRes.ok) throw new Error('Failed to download EPUB');
   const blob = await epubRes.blob();
   onProgress(0.4);
