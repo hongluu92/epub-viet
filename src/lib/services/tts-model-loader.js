@@ -3,9 +3,9 @@
  * Serves model from /public/model/ directory.
  */
 
-// ONNX model hosted on Google Drive, proxied via Cloudflare Worker to bypass CORS/confirm
+// ONNX model hosted on Google Drive (direct download with confirm bypass)
 const DRIVE_FILE_ID = '1RvnjbhO3coM3Np6oc9IeE3X7EWt8QUnX';
-const MODEL_URL = `https://timsach-proxy.honglm1011.workers.dev/?url=${encodeURIComponent(`https://drive.google.com/uc?export=download&confirm=t&id=${DRIVE_FILE_ID}`)}`;
+const MODEL_URL = `https://drive.usercontent.google.com/download?id=${DRIVE_FILE_ID}&export=download&confirm=t`;
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
 const MODEL_CONFIG_URL = `${BASE_PATH}/model/nh.onnx.json`;
 const CACHE_NAME = 'readflow-tts-model-v1';
