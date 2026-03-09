@@ -45,6 +45,11 @@
   --nav-bg: rgba(244, 236, 216, 0.92);
 }
 
+/* ===== Interactive Elements ===== */
+button, [role="button"], a {
+  cursor: pointer;
+}
+
 /* ===== Base Styles ===== */
 body {
   background-color: var(--bg);

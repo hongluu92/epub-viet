@@ -36,13 +36,13 @@ export default function BookmarksPage() {
         className="text-2xl font-semibold mb-6"
         style={{ fontFamily: 'var(--font-lora)' }}
       >
-        Dau trang
+        Dấu trang
       </h1>
 
       {groups.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-3">
           <Bookmark size={40} style={{ color: 'var(--text-muted)' }} />
-          <p style={{ color: 'var(--text-muted)' }}>Chua co dau trang nao</p>
+          <p style={{ color: 'var(--text-muted)' }}>Chua co Dấu trang nao</p>
         </div>
       ) : (
         <div className="space-y-6">

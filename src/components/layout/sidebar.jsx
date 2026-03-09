@@ -7,9 +7,9 @@ import { useAuth } from '@/hooks/use-auth';
 import { LoginButton, UserMenu } from '@/components/auth';
 
 const NAV_ITEMS = [
-  { label: 'Tu sach', icon: BookOpen, href: '/' },
-  { label: 'Dau trang', icon: Bookmark, href: '/bookmarks' },
-  { label: 'Cai dat', icon: Settings, href: '/settings' },
+  { label: 'Tủ sách', icon: BookOpen, href: '/' },
+  { label: 'Dấu trang', icon: Bookmark, href: '/bookmarks' },
+  { label: 'Cài đặt', icon: Settings, href: '/settings' },
 ];
 
 // Fixed left sidebar for desktop (md+). 200px wide, vertical nav tabs.

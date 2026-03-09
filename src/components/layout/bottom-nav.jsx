@@ -5,9 +5,9 @@ import { usePathname } from 'next/navigation';
 import { BookOpen, Bookmark, Settings } from 'lucide-react';
 
 const NAV_ITEMS = [
-  { label: 'Tu sach', icon: BookOpen, href: '/' },
-  { label: 'Dau trang', icon: Bookmark, href: '/bookmarks' },
-  { label: 'Cai dat', icon: Settings, href: '/settings' },
+  { label: 'Tủ sách', icon: BookOpen, href: '/' },
+  { label: 'Dấu trang', icon: Bookmark, href: '/bookmarks' },
+  { label: 'Cài đặt', icon: Settings, href: '/settings' },
 ];
 
 // Fixed bottom navigation bar for mobile viewports.

@@ -42,7 +42,7 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen pb-8" style={{ backgroundColor: 'var(--bg)', color: 'var(--text)' }}>
       <h1 className="text-2xl font-semibold px-4 pt-6 pb-2" style={{ fontFamily: 'var(--font-lora)' }}>
-        Cai dat
+        Cài đặt
       </h1>
 
       {/* Tai khoan */}
