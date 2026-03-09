@@ -5,6 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { getBook, getChapter, getChaptersByBook } from '@/lib/services/indexeddb-service';
 import { useLibraryStore } from '@/lib/stores/library-store';
 import { useTts } from '@/hooks/use-tts';
+import { isModelCached, downloadModel } from '@/lib/services/tts-model-loader';
+import { useTtsStore } from '@/lib/stores/tts-store';
 import ReaderHeader from '@/components/reader/reader-header';
 import ReadingProgressBar from '@/components/reader/reading-progress-bar';
 import SettingsDropdown from '@/components/reader/settings-dropdown';
@@ -59,6 +61,30 @@ export default function ReaderPageClient() {
 
     load();
   }, [id]);
+
+  // Download TTS model to IndexedDB in background (if not cached)
+  const setModelLoading = useTtsStore((s) => s.setModelLoading);
+  const setModelProgress = useTtsStore((s) => s.setModelProgress);
+  const setModelLoaded = useTtsStore((s) => s.setModelLoaded);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (await isModelCached()) {
+        setModelLoaded(true);
+        return;
+      }
+      setModelLoading(true);
+      try {
+        await downloadModel((p) => { if (!cancelled) setModelProgress(p); });
+        if (!cancelled) setModelLoaded(true);
+      } catch (err) {
+        console.error('[TTS] Model download failed:', err);
+      } finally {
+        if (!cancelled) setModelLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [setModelLoading, setModelProgress, setModelLoaded]);
 
   // Stop TTS when leaving the reader page
   useEffect(() => {

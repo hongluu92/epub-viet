@@ -1,5 +1,7 @@
 /**
- * TTS model loader — downloads ONNX model to IndexedDB, loads from there.
+ * TTS model loader — 2-phase approach:
+ * Phase 1 (on reader enter): download model → save to IndexedDB → release memory
+ * Phase 2 (on play): load from IndexedDB → create ONNX session
  */
 
 const MODEL_URL = 'https://3gpp.arrow-tech.vn/api/v1/static/nh.onnx';
@@ -11,7 +13,8 @@ const MODEL_KEY = 'nh.onnx';
 
 let onnxSession = null;
 
-// Simple IndexedDB helpers
+// --- IndexedDB helpers ---
+
 function openDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, 1);
@@ -39,8 +42,76 @@ async function saveToDB(db, buffer) {
   });
 }
 
+// --- Phase 1: Download & persist (called on reader page load) ---
+
+/** Check if model exists in IndexedDB */
+export async function isModelCached() {
+  try {
+    const db = await openDB();
+    const data = await getFromDB(db);
+    db.close();
+    return !!data;
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Load ONNX model with IndexedDB caching and progress tracking.
+ * Download model and save to IndexedDB. No ONNX loading here.
+ * All download memory is released after save completes.
+ * @param {(progress: number) => void} onProgress - 0-100 download progress
+ */
+export async function downloadModel(onProgress) {
+  const db = await openDB();
+
+  // Check if already cached
+  const existing = await getFromDB(db);
+  if (existing) {
+    db.close();
+    onProgress?.(100);
+    return;
+  }
+
+  console.log('[TTS] Downloading model...');
+  const res = await fetch(MODEL_URL);
+  if (!res.ok) throw new Error(`Failed to fetch model: ${res.status}`);
+
+  const contentLength = res.headers.get('content-length');
+  const total = contentLength ? parseInt(contentLength, 10) : 63500000;
+  const reader = res.body.getReader();
+  const chunks = [];
+  let received = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    received += value.length;
+    onProgress?.(Math.round((received / total) * 90));
+  }
+
+  // Merge chunks into single buffer
+  const merged = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.length;
+  }
+  chunks.length = 0; // release chunk refs
+
+  // Save to IndexedDB
+  await saveToDB(db, merged.buffer);
+  db.close();
+  console.log('[TTS] Model saved to IndexedDB, size:', received);
+  onProgress?.(100);
+  // merged and buffer go out of scope → GC can reclaim ~60MB
+}
+
+// --- Phase 2: Load from IndexedDB (called on play) ---
+
+/**
+ * Load ONNX model from IndexedDB and create inference session.
+ * Should only be called after downloadModel() has completed.
  * @param {(progress: number) => void} onProgress - 0-100 progress callback
  */
 export async function loadModel(onProgress) {
@@ -49,56 +120,20 @@ export async function loadModel(onProgress) {
   const ort = await import('onnxruntime-web');
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.wasmPaths = `${BASE_PATH}/`;
+  onProgress?.(30);
 
+  // Read from IndexedDB
   const db = await openDB();
-  let buffer = await getFromDB(db);
+  const buffer = await getFromDB(db);
+  db.close();
 
-  // Validate cached model
-  if (buffer) {
-    const header = new Uint8Array(buffer, 0, 4);
-    if (header[0] !== 0x08) buffer = null;
-    else onProgress?.(90);
-  }
-
-  // Download if not cached
   if (!buffer) {
-    console.log('[TTS] Downloading model...');
-    const res = await fetch(MODEL_URL);
-    if (!res.ok) throw new Error(`Failed to fetch model: ${res.status}`);
-
-    const contentLength = res.headers.get('content-length');
-    const total = contentLength ? parseInt(contentLength, 10) : 63500000;
-    const reader = res.body.getReader();
-    const chunks = [];
-    let received = 0;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      received += value.length;
-      onProgress?.(Math.round((received / total) * 85));
-    }
-
-    // Merge into single ArrayBuffer
-    const merged = new Uint8Array(received);
-    let offset = 0;
-    for (const chunk of chunks) {
-      merged.set(chunk, offset);
-      offset += chunk.length;
-    }
-    chunks.length = 0;
-    buffer = merged.buffer;
-
-    // Save to IndexedDB
-    await saveToDB(db, buffer);
-    onProgress?.(90);
+    throw new Error('Model not found in IndexedDB. Call downloadModel() first.');
   }
+  onProgress?.(50);
 
   // Create ONNX session
   console.log('[TTS] Creating ONNX session, size:', buffer.byteLength);
-  onProgress?.(92);
-
   try {
     onnxSession = await ort.InferenceSession.create(buffer, {
       executionProviders: ['wasm'],

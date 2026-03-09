@@ -77,18 +77,13 @@ export function useTts() {
     abortRef.current = false;
     setPreparing(true);
 
-    // Ensure model is loaded
-    if (!useTtsStore.getState().modelLoaded) {
-      setModelLoading(true);
-      try {
-        await initEngine((progress) => setModelProgress(progress));
-        setModelLoaded(true);
-      } catch (err) {
-        console.error('TTS model load failed:', err);
-        setModelLoading(false);
-        return;
-      }
-      setModelLoading(false);
+    // Ensure ONNX session is ready (model must be in IndexedDB already)
+    try {
+      await initEngine((progress) => setModelProgress(progress));
+    } catch (err) {
+      console.error('TTS engine init failed:', err);
+      setPreparing(false);
+      return;
     }
 
     setPlaying(true);
