@@ -1,6 +1,6 @@
 /**
  * TTS model loader — handles ONNX model loading with Cache Storage API.
- * Serves model from /public/model/ directory.
+ * Optimized for low peak memory on mobile devices.
  */
 
 // ONNX model hosted on arrow-tech CDN
@@ -24,20 +24,19 @@ export async function loadModel(onProgress) {
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.wasmPaths = `${BASE_PATH}/`;
 
-  // Clear any stale cache that might have stored non-model data (e.g. 404 HTML)
   const cache = await caches.open(CACHE_NAME);
   const cached = await cache.match(MODEL_URL);
+  let needsCache = false;
 
   let buffer;
 
   if (cached) {
     console.log('[TTS] Found cached model, loading...');
-    onProgress?.(95);
+    onProgress?.(90);
     buffer = await cached.arrayBuffer();
     // Validate it's actually an ONNX file (starts with protobuf magic bytes)
     const header = new Uint8Array(buffer, 0, 4);
     if (header[0] !== 0x08) {
-      // Corrupted cache — delete and re-fetch
       await cache.delete(MODEL_URL);
       buffer = null;
     }
@@ -51,32 +50,37 @@ export async function loadModel(onProgress) {
     }
 
     const contentLength = fetchResponse.headers.get('content-length');
-    const total = contentLength ? parseInt(contentLength, 10) : 63500000; // ~60MB fallback
-    // Pre-allocate single buffer to avoid memory fragmentation
-    buffer = new ArrayBuffer(total);
-    const dest = new Uint8Array(buffer);
+    const total = contentLength ? parseInt(contentLength, 10) : 63500000;
+    // Collect chunks instead of pre-allocating (handles unknown size better)
+    const chunks = [];
     const reader = fetchResponse.body.getReader();
     let received = 0;
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      dest.set(value, received);
+      chunks.push(value);
       received += value.length;
-      onProgress?.(Math.round((received / total) * 90));
+      onProgress?.(Math.round((received / total) * 85));
     }
 
-    // Trim if actual size differs from content-length
-    if (received !== total) {
-      buffer = buffer.slice(0, received);
+    // Merge chunks into single Uint8Array
+    buffer = new Uint8Array(received);
+    let offset = 0;
+    for (const chunk of chunks) {
+      buffer.set(chunk, offset);
+      offset += chunk.length;
     }
-
-    // Cache for next time
-    await cache.put(MODEL_URL, new Response(new Blob([buffer])));
-    onProgress?.(95);
+    // Release chunk references immediately
+    chunks.length = 0;
+    buffer = buffer.buffer;
+    needsCache = true;
+    onProgress?.(90);
   }
 
+  // Create ONNX session
   console.log('[TTS] Creating ONNX session, buffer size:', buffer.byteLength);
+  onProgress?.(92);
   try {
     onnxSession = await ort.InferenceSession.create(buffer, {
       executionProviders: ['wasm'],
@@ -85,6 +89,12 @@ export async function loadModel(onProgress) {
     console.error('[TTS] ONNX session create failed:', err);
     throw err;
   }
+
+  // Cache after session is created — buffer can be GC'd after this
+  if (needsCache) {
+    cache.put(MODEL_URL, new Response(new Blob([buffer]))).catch(() => {});
+  }
+
   console.log('[TTS] ONNX session created successfully');
   onProgress?.(100);
   return onnxSession;
