@@ -3,8 +3,8 @@
  * Serves model from /public/model/ directory.
  */
 
-// ONNX model on GitHub Releases, streamed via Cloudflare Worker for CORS
-const MODEL_URL = `https://timsach-proxy.honglm1011.workers.dev/?url=${encodeURIComponent('https://github.com/hongluu92/book-tts/releases/download/v0.1.0/nh.onnx')}`;
+// ONNX model hosted on arrow-tech CDN
+const MODEL_URL = 'https://3gpp.arrow-tech.vn/api/v1/static/nh.onnx';
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
 const MODEL_CONFIG_URL = `${BASE_PATH}/model/nh.onnx.json`;
 const CACHE_NAME = 'readflow-tts-model-v1';
