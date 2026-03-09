@@ -96,6 +96,7 @@ export default function HomePage() {
   }, [loadingMore, hasMore, activeGenre, browsePage]);
 
   // IntersectionObserver for infinite scroll
+  // Re-attach when loadMore changes or when sentinel appears (browseBooks populated)
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
@@ -105,7 +106,7 @@ export default function HomePage() {
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [loadMore]);
+  }, [loadMore, browseBooks.length]);
 
   // Download and import a timsach book
   const handleDownload = useCallback(async (book) => {
