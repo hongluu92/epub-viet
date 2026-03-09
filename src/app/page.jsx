@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { Search } from 'lucide-react';
 import { useLibraryStore } from '@/lib/stores/library-store';
 import { useEpubUpload } from '@/components/upload-modal';
-import { HomeHeader, BookSection, BookCard, GenreChips } from '@/components/home';
+import { HomeHeader, BookCard, GenreChips } from '@/components/home';
 import {
   GENRE_SLUG_MAP, fetchBooksByGenre, downloadAndImportEpub, searchBooks,
 } from '@/lib/services/timsach-service';
@@ -76,27 +77,74 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
-      <HomeHeader
-        onImport={() => triggerUpload()}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-      />
+      <HomeHeader onImport={() => triggerUpload()} />
 
-      {isSearching ? (
-        /* Search results */
-        <section className="mb-6">
-          <div className="px-4 mb-3">
-            <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>
-              Ket qua tim kiem
-            </h2>
+      {/* My Library section - always shown first */}
+      <section className="mb-6">
+        <div className="flex items-center justify-between px-4 mb-3">
+          <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>
+            Tủ sách của tôi
+          </h2>
+        </div>
+        {!isLoading && books.length > 0 ? (
+          <div
+            className="flex gap-3 px-4 pb-2 overflow-x-auto"
+            style={{ scrollbarWidth: 'none' }}
+          >
+            {books.map((book) => (
+              <BookCard key={book.id} book={book} onDelete={(b) => removeBook(b.id)} />
+            ))}
           </div>
-          {searchLoading ? (
+        ) : !isLoading ? (
+          <p className="px-4 py-6 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+            Chưa có sách nào. Tải sách từ Kho sách bên dưới để bắt đầu đọc!
+          </p>
+        ) : null}
+      </section>
+
+      {/* Divider */}
+      <div className="px-4 mb-4">
+        <hr style={{ borderColor: 'var(--border, #333)' }} />
+      </div>
+
+      {/* Book Store section */}
+      <section className="mb-6">
+        <div className="flex items-center justify-between px-4 mb-3">
+          <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>
+            Kho sách
+          </h2>
+        </div>
+
+        {/* Search input */}
+        <div className="relative px-4 mb-3">
+          <Search
+            size={16}
+            className="absolute left-7 top-1/2 -translate-y-1/2"
+            style={{ color: 'var(--text-muted)' }}
+          />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Tìm sách trên timsach.vn..."
+            className="w-full pl-9 pr-4 py-2 rounded-lg text-sm outline-none"
+            style={{
+              backgroundColor: 'var(--surface)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+            }}
+          />
+        </div>
+
+        {isSearching ? (
+          /* Search results */
+          searchLoading ? (
             <p className="px-4 py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-              Dang tim...
+              Đang tìm...
             </p>
           ) : searchResults.length === 0 ? (
             <p className="px-4 py-4 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-              Khong tim thay sach
+              Không tìm thấy sách
             </p>
           ) : (
             <div
@@ -112,37 +160,19 @@ export default function HomePage() {
                 />
               ))}
             </div>
-          )}
-        </section>
-      ) : (
-        <>
-          <GenreChips activeGenre={activeGenre} onGenreChange={setActiveGenre} />
-
-          {/* Library section */}
-          {!isLoading && books.length > 0 && (
-            <BookSection
-              title="Tu sach"
-              books={books}
-              showViewAll
-              onDelete={(book) => removeBook(book.id)}
-            />
-          )}
-
-          {/* Timsach browse section */}
-          <section className="mb-6">
-            <div className="flex items-center justify-between px-4 mb-3">
-              <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>
-                {activeGenre}
-              </h2>
-            </div>
+          )
+        ) : (
+          /* Genre browse */
+          <>
+            <GenreChips activeGenre={activeGenre} onGenreChange={setActiveGenre} />
 
             {browseLoading ? (
               <p className="px-4 py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-                Dang tai sach...
+                Đang tải sách...
               </p>
             ) : browseBooks.length === 0 ? (
               <p className="px-4 py-4 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-                Khong tim thay sach
+                Không tìm thấy sách
               </p>
             ) : (
               <div
@@ -159,9 +189,9 @@ export default function HomePage() {
                 ))}
               </div>
             )}
-          </section>
-        </>
-      )}
+          </>
+        )}
+      </section>
 
       <UploadProgress />
     </div>

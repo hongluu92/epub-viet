@@ -17,6 +17,8 @@ export const useLibraryStore = create((set) => ({
     set({ isLoading: true });
     try {
       const books = await db.getBooks();
+      // Sort by most recently read/added (newest first)
+      books.sort((a, b) => (b.lastReadAt || b.addedAt || 0) - (a.lastReadAt || a.addedAt || 0));
       set({ books, isLoading: false });
     } catch {
       set({ isLoading: false });
