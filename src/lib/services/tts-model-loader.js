@@ -23,8 +23,8 @@ async function ensureModelCached(onProgress) {
 
   if (cached) {
     // Validate it's actually an ONNX file
-    const clone = cached.clone();
-    const header = new Uint8Array(await clone.slice(0, 4).arrayBuffer?.() || await (await clone.blob()).slice(0, 4).arrayBuffer());
+    const blob = await cached.clone().blob();
+    const header = new Uint8Array(await blob.slice(0, 4).arrayBuffer());
     if (header[0] === 0x08) {
       console.log('[TTS] Model found in cache');
       onProgress?.(90);
