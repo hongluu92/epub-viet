@@ -9,8 +9,8 @@ import BookCover from './book-cover';
 // When onDownload is provided, shows download button instead of linking to reader.
 export default function BookCard({ book, onDownload, isDownloading, onDelete }) {
   const progress = book.readingProgress ?? 0;
-  const chapterInfo = book.currentChapterIndex != null
-    ? `Ch. ${book.currentChapterIndex + 1}`
+  const chapterInfo = progress > 0
+    ? `${Math.round(progress * 100)}% · Ch. ${(book.currentChapter ?? 0) + 1}/${book.chapterCount || '?'}`
     : book.chapterCount ? `${book.chapterCount} chuong` : (book.author || '');
 
   const Wrapper = onDownload ? 'div' : Link;
