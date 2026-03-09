@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { BookOpen, Bookmark, Settings } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { LoginButton, UserMenu } from '@/components/auth';
 
 const NAV_ITEMS = [
   { label: 'Tu sach', icon: BookOpen, href: '/' },
@@ -52,17 +53,9 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* User avatar */}
+      {/* User auth section */}
       <div className="px-4 py-5">
-        {user?.photoURL ? (
-          <img src={user.photoURL} alt={user.displayName} className="w-9 h-9 rounded-full"
-            style={{ border: '2px solid var(--accent)' }} />
-        ) : (
-          <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-medium"
-            style={{ backgroundColor: 'var(--border)', color: 'var(--text-muted)' }}>
-            {user?.displayName?.[0] ?? '?'}
-          </div>
-        )}
+        {user ? <UserMenu /> : <LoginButton />}
       </div>
     </aside>
   );
