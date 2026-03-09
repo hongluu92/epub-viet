@@ -1,67 +1,46 @@
 /**
- * TTS model loader — handles ONNX model loading with Cache Storage API.
- * Uses URL-based loading to let ONNX runtime manage memory internally.
+ * TTS model loader — downloads ONNX model to IndexedDB, loads from there.
  */
 
-// ONNX model hosted on arrow-tech CDN
 const MODEL_URL = 'https://3gpp.arrow-tech.vn/api/v1/static/nh.onnx';
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
 const MODEL_CONFIG_URL = `${BASE_PATH}/model/nh.onnx.json`;
-const CACHE_NAME = 'readflow-tts-model-v1';
+const DB_NAME = 'readflow-tts';
+const STORE_NAME = 'model';
+const MODEL_KEY = 'nh.onnx';
 
 let onnxSession = null;
 
-/**
- * Pre-download model into Cache Storage with progress tracking.
- * Once cached, ONNX runtime loads via URL from cache (Service Worker intercept not needed —
- * ort fetches the URL, and the browser serves it from Cache Storage automatically if we
- * prime it first).
- */
-async function ensureModelCached(onProgress) {
-  const cache = await caches.open(CACHE_NAME);
-  const cached = await cache.match(MODEL_URL);
+// Simple IndexedDB helpers
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(STORE_NAME);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
 
-  if (cached) {
-    // Validate it's actually an ONNX file
-    const blob = await cached.clone().blob();
-    const header = new Uint8Array(await blob.slice(0, 4).arrayBuffer());
-    if (header[0] === 0x08) {
-      console.log('[TTS] Model found in cache');
-      onProgress?.(90);
-      return;
-    }
-    await cache.delete(MODEL_URL);
-  }
+async function getFromDB(db) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const req = tx.objectStore(STORE_NAME).get(MODEL_KEY);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
 
-  console.log('[TTS] Downloading model...');
-  const res = await fetch(MODEL_URL);
-  if (!res.ok) throw new Error(`Failed to fetch model: ${res.status}`);
-
-  const contentLength = res.headers.get('content-length');
-  const total = contentLength ? parseInt(contentLength, 10) : 63500000;
-  const reader = res.body.getReader();
-  const chunks = [];
-  let received = 0;
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-    received += value.length;
-    onProgress?.(Math.round((received / total) * 85));
-  }
-
-  // Store in cache as a proper Response
-  const blob = new Blob(chunks);
-  chunks.length = 0; // release refs
-  await cache.put(MODEL_URL, new Response(blob, {
-    headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': String(received) },
-  }));
-  onProgress?.(90);
+async function saveToDB(db, buffer) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).put(buffer, MODEL_KEY);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
 }
 
 /**
- * Load ONNX model with caching and progress tracking.
+ * Load ONNX model with IndexedDB caching and progress tracking.
  * @param {(progress: number) => void} onProgress - 0-100 progress callback
  */
 export async function loadModel(onProgress) {
@@ -71,16 +50,54 @@ export async function loadModel(onProgress) {
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.wasmPaths = `${BASE_PATH}/`;
 
-  // Step 1: Ensure model is in Cache Storage (with progress)
-  await ensureModelCached(onProgress);
+  const db = await openDB();
+  let buffer = await getFromDB(db);
 
-  // Step 2: Load from cache — read as ArrayBuffer for ONNX runtime
+  // Validate cached model
+  if (buffer) {
+    const header = new Uint8Array(buffer, 0, 4);
+    if (header[0] !== 0x08) buffer = null;
+    else onProgress?.(90);
+  }
+
+  // Download if not cached
+  if (!buffer) {
+    console.log('[TTS] Downloading model...');
+    const res = await fetch(MODEL_URL);
+    if (!res.ok) throw new Error(`Failed to fetch model: ${res.status}`);
+
+    const contentLength = res.headers.get('content-length');
+    const total = contentLength ? parseInt(contentLength, 10) : 63500000;
+    const reader = res.body.getReader();
+    const chunks = [];
+    let received = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.length;
+      onProgress?.(Math.round((received / total) * 85));
+    }
+
+    // Merge into single ArrayBuffer
+    const merged = new Uint8Array(received);
+    let offset = 0;
+    for (const chunk of chunks) {
+      merged.set(chunk, offset);
+      offset += chunk.length;
+    }
+    chunks.length = 0;
+    buffer = merged.buffer;
+
+    // Save to IndexedDB
+    await saveToDB(db, buffer);
+    onProgress?.(90);
+  }
+
+  // Create ONNX session
+  console.log('[TTS] Creating ONNX session, size:', buffer.byteLength);
   onProgress?.(92);
-  console.log('[TTS] Creating ONNX session...');
-
-  const cache = await caches.open(CACHE_NAME);
-  const cached = await cache.match(MODEL_URL);
-  const buffer = await cached.arrayBuffer();
 
   try {
     onnxSession = await ort.InferenceSession.create(buffer, {
@@ -91,7 +108,7 @@ export async function loadModel(onProgress) {
     throw err;
   }
 
-  console.log('[TTS] ONNX session created successfully');
+  console.log('[TTS] ONNX session created');
   onProgress?.(100);
   return onnxSession;
 }
