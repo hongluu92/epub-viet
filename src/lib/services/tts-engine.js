@@ -22,10 +22,8 @@ import {
  * @param {(progress: number) => void} onProgress - 0-100 progress callback
  */
 export async function initEngine(onProgress) {
-  console.log('[TTS Engine] initEngine called');
   getAudioContext();
   await loadModel(onProgress);
-  console.log('[TTS Engine] initEngine complete');
 }
 
 /**
@@ -36,14 +34,9 @@ export async function initEngine(onProgress) {
  */
 export async function synthesizeSentence(text, speed = 1.0) {
   if (!text?.trim()) return null;
-  console.log('[TTS Engine] Synthesizing:', text.substring(0, 50) + '...');
-  console.log('[TTS Engine] Phonemizing...');
   const phonemeIds = await textToPhonemeIds(text);
-  console.log('[TTS Engine] Got phoneme IDs:', phonemeIds?.length);
   if (!phonemeIds?.length) return null;
-  console.log('[TTS Engine] Running inference, speed:', speed);
   const pcmData = await inferAudio(phonemeIds, speed);
-  console.log('[TTS Engine] Got PCM data, samples:', pcmData?.length);
   return createAudioBuffer(pcmData);
 }
 

@@ -72,7 +72,6 @@ export async function downloadModel(onProgress) {
     return;
   }
 
-  console.log('[TTS] Downloading model...');
   const res = await fetch(MODEL_URL);
   if (!res.ok) throw new Error(`Failed to fetch model: ${res.status}`);
 
@@ -102,7 +101,6 @@ export async function downloadModel(onProgress) {
   // Save to IndexedDB
   await saveToDB(db, merged.buffer);
   db.close();
-  console.log('[TTS] Model saved to IndexedDB, size:', received);
   onProgress?.(100);
   // merged and buffer go out of scope → GC can reclaim ~60MB
 }
@@ -137,7 +135,6 @@ export async function loadModel(onProgress) {
   onProgress?.(50);
 
   // Create ONNX session
-  console.log('[TTS] Creating ONNX session, size:', buffer.byteLength);
   try {
     onnxSession = await ort.InferenceSession.create(buffer, {
       executionProviders: ['wasm'],
@@ -147,7 +144,6 @@ export async function loadModel(onProgress) {
     throw err;
   }
 
-  console.log('[TTS] ONNX session created');
   onProgress?.(100);
   return onnxSession;
 }

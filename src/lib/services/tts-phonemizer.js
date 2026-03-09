@@ -21,7 +21,6 @@ let phonemizeQueue = Promise.resolve();
 function getPhonemizerWorker() {
   if (!phonemizerWorker) {
     phonemizerWorker = new Worker(PIPER_WORKER_URL);
-    console.log('[Phonemizer] Created persistent worker');
   }
   return phonemizerWorker;
 }
@@ -66,10 +65,7 @@ function runPhonemizerRequest(text, assetBase) {
         reject(new Error(data.message || 'Piper phonemizer stderr'));
         return;
       }
-      if (data?.kind === 'debug') {
-        console.log('[Phonemizer/Worker]', data.message, data.meta || {});
-        return;
-      }
+      if (data?.kind === 'debug') return;
       if (data?.kind === 'fetch' && data.url && data.blob) {
         piperBlobCache[data.url] = data.blob;
       }
@@ -139,9 +135,7 @@ function textToPhonemeIdsFallback(text) {
   // EOS token
   ids.push(EOS_ID);
 
-  const hasUsablePhonemes = ids.length > 2;
-  console.log('[Phonemizer] Text:', text.substring(0, 40), '→', ids.length, 'IDs');
-  return hasUsablePhonemes ? ids : [];
+  return ids.length > 2 ? ids : [];
 }
 
 /**
@@ -155,30 +149,20 @@ export async function textToPhonemeIds(text) {
   if (typeof window === 'undefined') return textToPhonemeIdsFallback(text);
 
   try {
-    console.log('[Phonemizer] Queue request (local assets first)', {
-      workerUrl: PIPER_WORKER_URL,
-      modelConfigUrl: getModelConfigUrl(),
-      phonemizeJsUrl: PIPER_PHONEMIZE_JS_URL,
-      localAssetBase: PIPER_LOCAL_ASSET_BASE,
-      fallbackAssetBase: PIPER_CDN_ASSET_BASE,
-    });
-
     let phonemeIds = [];
     try {
       phonemeIds = await enqueuePhonemize(() => runPhonemizerRequest(text, PIPER_LOCAL_ASSET_BASE));
-    } catch (localErr) {
-      console.warn('[Phonemizer] Local wasm/data unavailable, fallback to CDN:', localErr);
+    } catch {
+      // Local wasm/data unavailable, fallback to CDN
       phonemeIds = await enqueuePhonemize(() => runPhonemizerRequest(text, PIPER_CDN_ASSET_BASE));
     }
 
     if (Array.isArray(phonemeIds) && phonemeIds.length > 0) {
-      console.log('[Phonemizer] Piper phonemizer OK:', phonemeIds.length, 'IDs');
       return phonemeIds;
     }
-  } catch (err) {
-    console.warn('[Phonemizer] Piper phonemizer failed, fallback mapping:', err);
+  } catch {
+    // Piper phonemizer failed, use fallback character mapping
   }
 
-  console.log('[Phonemizer] Using fallback character mapping');
   return textToPhonemeIdsFallback(text);
 }

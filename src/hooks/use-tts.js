@@ -17,8 +17,6 @@ const PREFETCH_AHEAD = 1;
 const STARTUP_BUFFER_COUNT = 2;
 const STARTUP_BUFFER_MAX_COUNT = 6;
 const STARTUP_BUFFER_TARGET_MS = 6000;
-const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
-const sentencePreview = (text) => (text || '').replace(/\s+/g, ' ').trim().slice(0, 80);
 const estimateSentenceMs = (text, speed) => {
   const normalized = (text || '').trim();
   const chars = normalized.length;
@@ -82,17 +80,10 @@ export function useTts() {
     if (inflight) return inflight;
 
     const task = (async () => {
-      const synthStart = now();
       try {
         const buffer = await synthesizeSentence(sentences[idx], speed);
         if (abortRef.current || runId !== playRunIdRef.current) return null;
         if (buffer) prefetchCache.current.set(key, buffer);
-        console.log('[TTS Timing] synth_ready', {
-          idx,
-          speed,
-          ms: Number((now() - synthStart).toFixed(1)),
-          text: sentencePreview(sentences[idx]),
-        });
         return buffer;
       } catch (err) {
         console.error(`Synthesis failed for sentence ${idx}:`, err);
@@ -172,19 +163,9 @@ export function useTts() {
     }
 
     setPlaying(true);
-    console.log('[TTS Timing] play_start', {
-      chapterIdx,
-      startIdx,
-      totalSentences: sentences.length,
-      speedLocked: playSpeedRef.current,
-      startupBuffered: startupBufferedCount,
-      startupEstimatedMs,
-      ts: new Date().toISOString(),
-    });
 
     // Prime prefetch window before entering playback loop.
     prefetch(sentences, startIdx, playSpeedRef.current, runId);
-    let previousSentenceEndAt = now();
 
     for (let i = startIdx; i < sentences.length; i++) {
       if (abortRef.current || runId !== playRunIdRef.current) break;
@@ -197,9 +178,7 @@ export function useTts() {
 
       // Get or synthesize current sentence (skip empty)
       const cacheKey = `${i}-${speed}`;
-      const waitStart = now();
       let buffer = await getOrCreateBuffer(sentences, i, speed, runId);
-      const waitMs = now() - waitStart;
       prefetchCache.current.delete(cacheKey);
 
       // Skip null buffers (empty text)
@@ -208,40 +187,15 @@ export function useTts() {
         prefetchInFlight.current.delete(cacheKey);
         buffer = await getOrCreateBuffer(sentences, i, speed, runId);
       }
-      if (!buffer) {
-        console.warn('[TTS Timing] sentence_skipped', {
-          idx: i,
-          reason: 'buffer_null_or_synthesis_failed',
-          speedLocked: speed,
-          text: sentencePreview(sentences[i]),
-        });
-        continue;
-      }
+      if (!buffer) continue;
       if (abortRef.current || runId !== playRunIdRef.current) break;
-
-      const gapMs = now() - previousSentenceEndAt;
-      console.log('[TTS Timing] sentence_start', {
-        idx: i,
-        speed,
-        waitBufferMs: Number(waitMs.toFixed(1)),
-        gapFromPreviousEndMs: Number(gapMs.toFixed(1)),
-        text: sentencePreview(sentences[i]),
-      });
 
       // Start prefetching next sentences in background
       prefetch(sentences, i + 1, speed, runId);
 
       // Play current sentence and wait for it to end
       try {
-        const playStart = now();
         await playSentence(buffer);
-        const playMs = now() - playStart;
-        previousSentenceEndAt = now();
-        console.log('[TTS Timing] sentence_end', {
-          idx: i,
-          playMs: Number(playMs.toFixed(1)),
-          text: sentencePreview(sentences[i]),
-        });
       } catch (err) {
         if (abortRef.current || runId !== playRunIdRef.current) break;
         console.error(`Playback failed for sentence ${i}:`, err);
@@ -251,10 +205,6 @@ export function useTts() {
     if (!abortRef.current && runId === playRunIdRef.current) {
       setPlaying(false);
       reset();
-      console.log('[TTS Timing] play_end', {
-        chapterIdx,
-        ts: new Date().toISOString(),
-      });
       onComplete?.({ reason: 'finished', chapterIdx });
     }
   }, [getOrCreateBuffer, prefetch, reset, setModelProgress, setPlaying, setPosition, setPreparing]);
