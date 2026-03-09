@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { getBook, getChapter, getChapterTitlesByBook } from '@/lib/services/indexeddb-service';
 import { useLibraryStore } from '@/lib/stores/library-store';
 import { useTts } from '@/hooks/use-tts';
+import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { isModelCached, downloadModel } from '@/lib/services/tts-model-loader';
 import { useTtsStore } from '@/lib/stores/tts-store';
 import ReaderHeader from '@/components/reader/reader-header';
@@ -35,6 +36,8 @@ export default function ReaderPageClient() {
   const latestBookRef = useRef(null);
   const latestChapterRef = useRef(0);
   const latestScrollRef = useRef(0);
+  // Holds latest TTS playback context for keyboard shortcut callbacks
+  const ttsContextRef = useRef({ flatSentences: [], sentenceMap: [], playStartIndex: 0 });
 
   const getOverallReadingProgress = useCallback((chapterIndex, localScroll, chapterCount) => {
     if (!chapterCount) return 0;
@@ -101,6 +104,9 @@ export default function ReaderPageClient() {
   const setModelProgress = useTtsStore((s) => s.setModelProgress);
   const setModelLoaded = useTtsStore((s) => s.setModelLoaded);
   const modelLoaded = useTtsStore((s) => s.modelLoaded);
+  const isPlaying = useTtsStore((s) => s.isPlaying);
+  const isPaused = useTtsStore((s) => s.isPaused);
+  const currentFlatIndex = useTtsStore((s) => s.currentFlatIndex);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -268,6 +274,40 @@ export default function ReaderPageClient() {
     autoPlayChapterRef.current = null;
   }, [loadedChapters, currentChapterIndex, playWithAutoAdvance]);
 
+  // Keyboard shortcut callbacks — use ttsContextRef to avoid stale closures
+  // (flatSentences/sentenceMap are computed after early returns, so we store latest in a ref)
+  useKeyboardShortcuts({
+    enabled: !isLoading && !!book,
+    onPlayPause: useCallback(() => {
+      const { flatSentences: fs, sentenceMap: sm, playStartIndex: psi } = ttsContextRef.current;
+      if (isPlaying) {
+        pause();
+      } else if (isPaused) {
+        resume();
+      } else if (fs.length > 0) {
+        playWithAutoAdvance(fs, psi, latestChapterRef.current, sm);
+      }
+    }, [isPlaying, isPaused, pause, resume, playWithAutoAdvance]),
+    onPrevSentence: useCallback(() => {
+      if (!isPlaying && !isPaused) return;
+      const { flatSentences: fs, sentenceMap: sm } = ttsContextRef.current;
+      const prevIdx = Math.max(0, currentFlatIndex - 1);
+      stopTts();
+      if (fs.length > 0) playWithAutoAdvance(fs, prevIdx, latestChapterRef.current, sm);
+    }, [isPlaying, isPaused, currentFlatIndex, stopTts, playWithAutoAdvance]),
+    onNextSentence: useCallback(() => {
+      if (!isPlaying && !isPaused) return;
+      const { flatSentences: fs, sentenceMap: sm } = ttsContextRef.current;
+      const nextIdx = Math.min(fs.length - 1, currentFlatIndex + 1);
+      stopTts();
+      if (fs.length > 0) playWithAutoAdvance(fs, nextIdx, latestChapterRef.current, sm);
+    }, [isPlaying, isPaused, currentFlatIndex, stopTts, playWithAutoAdvance]),
+    onEscape: useCallback(() => {
+      setShowSettings(false);
+      setPopupData(null);
+    }, []),
+  });
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
@@ -311,6 +351,9 @@ export default function ReaderPageClient() {
   const playStartIndex = flatSentences.length > 0
     ? Math.min(flatSentences.length - 1, Math.max(0, Math.floor(scrollProgress * flatSentences.length)))
     : 0;
+
+  // Keep ref in sync so keyboard callbacks always have the latest context
+  ttsContextRef.current = { flatSentences, sentenceMap, playStartIndex };
 
   return (
     <div className="h-dvh flex flex-col relative" style={{ backgroundColor: 'var(--bg)' }}>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="#1a1a1a"/>
+  <!-- Open book shape -->
+  <g fill="none" stroke="#c0392b" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M256 160 C256 160 200 140 140 148 L140 372 C200 364 256 384 256 384"/>
+    <path d="M256 160 C256 160 312 140 372 148 L372 372 C312 364 256 384 256 384"/>
+    <line x1="256" y1="160" x2="256" y2="384"/>
+  </g>
+  <!-- Sound wave (TTS indicator) -->
+  <g fill="#c0392b" opacity="0.7">
+    <rect x="390" y="210" width="12" height="40" rx="6"/>
+    <rect x="410" y="195" width="12" height="70" rx="6"/>
+    <rect x="430" y="220" width="12" height="50" rx="6"/>
+  </g>
+</svg>

@@ -6,6 +6,7 @@ import { useLibraryStore } from '@/lib/stores/library-store';
 import { prefetchOnnxRuntime } from '@/lib/utils/prefetch-onnx';
 import { useEpubUpload } from '@/components/upload-modal';
 import { HomeHeader, BookCard, GenreChips } from '@/components/home';
+import { BookShelfSkeleton } from '@/components/loading-skeleton';
 import {
   GENRE_SLUG_MAP, fetchBooksByGenre, downloadAndImportEpub, searchBooks,
 } from '@/lib/services/timsach-service';
@@ -139,7 +140,9 @@ export default function HomePage() {
             Tủ sách của tôi
           </h2>
         </div>
-        {!isLoading && books.length > 0 ? (
+        {isLoading ? (
+          <BookShelfSkeleton count={3} />
+        ) : books.length > 0 ? (
           <div
             className="flex gap-3 px-4 pb-2 overflow-x-auto"
             style={{ scrollbarWidth: 'none' }}
@@ -148,11 +151,11 @@ export default function HomePage() {
               <BookCard key={book.id} book={book} onDelete={(b) => removeBook(b.id)} />
             ))}
           </div>
-        ) : !isLoading ? (
+        ) : (
           <p className="px-4 py-6 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
             Chưa có sách nào. Tải sách từ Kho sách bên dưới để bắt đầu đọc!
           </p>
-        ) : null}
+        )}
       </section>
 
       {/* Divider */}
@@ -220,9 +223,7 @@ export default function HomePage() {
             <GenreChips activeGenre={activeGenre} onGenreChange={setActiveGenre} />
 
             {browseLoading ? (
-              <p className="px-4 py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-                Đang tải sách...
-              </p>
+              <BookShelfSkeleton count={5} />
             ) : browseBooks.length === 0 ? (
               <p className="px-4 py-4 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
                 Không tìm thấy sách

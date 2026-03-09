@@ -2,6 +2,7 @@ import { Lora, Inter } from 'next/font/google';
 import '@/styles/globals.css';
 import ThemeWrapper from '@/components/theme-wrapper';
 import { AppShell } from '@/components/layout';
+import PwaRegister from '@/components/pwa-register';
 
 const lora = Lora({
   subsets: ['latin', 'vietnamese'],
@@ -21,12 +22,22 @@ const inter = Inter({
 export const metadata = {
   title: 'ReadFlow',
   description: 'Vietnamese web novel reader with TTS',
+  manifest: '/epub-viet/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'ReadFlow',
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
+  },
 };
 
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
+  themeColor: '#c0392b',
 };
 
 export default function RootLayout({ children }) {
@@ -36,6 +47,7 @@ export default function RootLayout({ children }) {
         <ThemeWrapper>
           <AppShell>{children}</AppShell>
         </ThemeWrapper>
+        <PwaRegister />
       </body>
     </html>
   );
