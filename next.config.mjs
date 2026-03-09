@@ -8,6 +8,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  turbopack: {},
   webpack: (config, { dev }) => {
     if (dev) {
       config.watchOptions = {
