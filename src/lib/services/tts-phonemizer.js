@@ -9,13 +9,94 @@ import { PHONEME_ID_MAP, BOS_ID, EOS_ID } from '@/lib/utils/phoneme-id-map';
 const PAD_ID = PHONEME_ID_MAP['_'] ?? 0;
 const SPACE_ID = PHONEME_ID_MAP[' '] ?? 3;
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
-const PIPER_ASSET_BASE = 'https://cdn.jsdelivr.net/gh/DavidCks/piper-wasm@main/build';
 const PIPER_PHONEMIZE_JS_URL = `${BASE_PATH}/piper/piper_phonemize.js`;
-const PIPER_PHONEMIZE_WASM_URL = `${PIPER_ASSET_BASE}/piper_phonemize.wasm`;
-const PIPER_PHONEMIZE_DATA_URL = `${PIPER_ASSET_BASE}/piper_phonemize.data`;
 const PIPER_WORKER_URL = `${BASE_PATH}/piper/piper_worker.js`;
 const ORT_BASE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/onnxruntime-web/1.17.1/';
+const PIPER_CDN_ASSET_BASE = 'https://cdn.jsdelivr.net/gh/DavidCks/piper-wasm@main/build';
+const PIPER_LOCAL_ASSET_BASE = `${BASE_PATH}/piper`;
 const piperBlobCache = {};
+let phonemizerWorker = null;
+let phonemizeQueue = Promise.resolve();
+
+function getPhonemizerWorker() {
+  if (!phonemizerWorker) {
+    phonemizerWorker = new Worker(PIPER_WORKER_URL);
+    console.log('[Phonemizer] Created persistent worker');
+  }
+  return phonemizerWorker;
+}
+
+function resetPhonemizerWorker() {
+  if (phonemizerWorker) {
+    phonemizerWorker.terminate();
+    phonemizerWorker = null;
+  }
+}
+
+function enqueuePhonemize(task) {
+  const run = phonemizeQueue.then(task, task);
+  phonemizeQueue = run.catch(() => {});
+  return run;
+}
+
+function runPhonemizerRequest(text, assetBase) {
+  return new Promise((resolve, reject) => {
+    const worker = getPhonemizerWorker();
+    const timeoutId = setTimeout(() => {
+      cleanup();
+      resetPhonemizerWorker();
+      reject(new Error('Piper phonemizer timeout'));
+    }, 20000);
+
+    const cleanup = () => {
+      clearTimeout(timeoutId);
+      worker.removeEventListener('message', handleMessage);
+      worker.removeEventListener('error', handleError);
+    };
+
+    const handleMessage = (event) => {
+      const data = event.data;
+      if (data?.kind === 'output') {
+        cleanup();
+        resolve(data.phonemeIds || []);
+        return;
+      }
+      if (data?.kind === 'stderr') {
+        cleanup();
+        reject(new Error(data.message || 'Piper phonemizer stderr'));
+        return;
+      }
+      if (data?.kind === 'debug') {
+        console.log('[Phonemizer/Worker]', data.message, data.meta || {});
+        return;
+      }
+      if (data?.kind === 'fetch' && data.url && data.blob) {
+        piperBlobCache[data.url] = data.blob;
+      }
+    };
+
+    const handleError = (err) => {
+      cleanup();
+      resetPhonemizerWorker();
+      reject(err);
+    };
+
+    worker.addEventListener('message', handleMessage);
+    worker.addEventListener('error', handleError);
+    worker.postMessage({
+      kind: 'phonemize',
+      input: text,
+      speakerId: null,
+      blobs: piperBlobCache,
+      piperPhonemizeJsUrl: PIPER_PHONEMIZE_JS_URL,
+      piperPhonemizeWasmUrl: `${assetBase}/piper_phonemize.wasm`,
+      piperPhonemizeDataUrl: `${assetBase}/piper_phonemize.data`,
+      modelUrl: null,
+      modelConfigUrl: getModelConfigUrl(),
+      onnxruntimeUrl: ORT_BASE_URL,
+    });
+  });
+}
 
 function normalizeVietnameseText(text) {
   return text
@@ -74,57 +155,21 @@ export async function textToPhonemeIds(text) {
   if (typeof window === 'undefined') return textToPhonemeIdsFallback(text);
 
   try {
-    console.log('[Phonemizer] Starting Piper worker', {
+    console.log('[Phonemizer] Queue request (local assets first)', {
       workerUrl: PIPER_WORKER_URL,
       modelConfigUrl: getModelConfigUrl(),
       phonemizeJsUrl: PIPER_PHONEMIZE_JS_URL,
-      phonemizeWasmUrl: PIPER_PHONEMIZE_WASM_URL,
-      phonemizeDataUrl: PIPER_PHONEMIZE_DATA_URL,
+      localAssetBase: PIPER_LOCAL_ASSET_BASE,
+      fallbackAssetBase: PIPER_CDN_ASSET_BASE,
     });
 
-    const phonemeIds = await new Promise((resolve, reject) => {
-      const worker = new Worker(PIPER_WORKER_URL);
-      const timeoutId = setTimeout(() => {
-        worker.terminate();
-        reject(new Error('Piper phonemizer timeout'));
-      }, 20000);
-
-      worker.addEventListener('message', (event) => {
-        const data = event.data;
-        if (data?.kind === 'output') {
-          clearTimeout(timeoutId);
-          worker.terminate();
-          resolve(data.phonemeIds || []);
-          return;
-        }
-        if (data?.kind === 'stderr') {
-          clearTimeout(timeoutId);
-          worker.terminate();
-          reject(new Error(data.message || 'Piper phonemizer stderr'));
-          return;
-        }
-        if (data?.kind === 'debug') {
-          console.log('[Phonemizer/Worker]', data.message, data.meta || {});
-          return;
-        }
-        if (data?.kind === 'fetch' && data.url && data.blob) {
-          piperBlobCache[data.url] = data.blob;
-        }
-      });
-
-      worker.postMessage({
-        kind: 'phonemize',
-        input: text,
-        speakerId: null,
-        blobs: piperBlobCache,
-        piperPhonemizeJsUrl: PIPER_PHONEMIZE_JS_URL,
-        piperPhonemizeWasmUrl: PIPER_PHONEMIZE_WASM_URL,
-        piperPhonemizeDataUrl: PIPER_PHONEMIZE_DATA_URL,
-        modelUrl: null,
-        modelConfigUrl: getModelConfigUrl(),
-        onnxruntimeUrl: ORT_BASE_URL,
-      });
-    });
+    let phonemeIds = [];
+    try {
+      phonemeIds = await enqueuePhonemize(() => runPhonemizerRequest(text, PIPER_LOCAL_ASSET_BASE));
+    } catch (localErr) {
+      console.warn('[Phonemizer] Local wasm/data unavailable, fallback to CDN:', localErr);
+      phonemeIds = await enqueuePhonemize(() => runPhonemizerRequest(text, PIPER_CDN_ASSET_BASE));
+    }
 
     if (Array.isArray(phonemeIds) && phonemeIds.length > 0) {
       console.log('[Phonemizer] Piper phonemizer OK:', phonemeIds.length, 'IDs');

@@ -27,7 +27,7 @@ export default function ReaderPageClient() {
   const [isLoading, setIsLoading] = useState(true);
 
   const updateBookProgress = useLibraryStore((s) => s.updateBookProgress);
-  const { play, stop: stopTts } = useTts();
+  const { play, pause, resume, stop: stopTts, warmup, dispose: disposeTts } = useTts();
   const autoPlayChapterRef = useRef(null);
 
   // Load book and first chapter
@@ -66,6 +66,7 @@ export default function ReaderPageClient() {
   const setModelLoading = useTtsStore((s) => s.setModelLoading);
   const setModelProgress = useTtsStore((s) => s.setModelProgress);
   const setModelLoaded = useTtsStore((s) => s.setModelLoaded);
+  const modelLoaded = useTtsStore((s) => s.modelLoaded);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -86,10 +87,16 @@ export default function ReaderPageClient() {
     return () => { cancelled = true; };
   }, [setModelLoading, setModelProgress, setModelLoaded]);
 
+  // Warm up phonemizer/inference when model is ready to reduce first-play pause.
+  useEffect(() => {
+    if (!modelLoaded) return;
+    void warmup();
+  }, [modelLoaded, warmup]);
+
   // Stop TTS when leaving the reader page
   useEffect(() => {
-    return () => stopTts();
-  }, [stopTts]);
+    return () => disposeTts();
+  }, [disposeTts]);
 
   // Load next chapter for infinite scroll
   const loadNextChapter = useCallback(async () => {
@@ -274,6 +281,10 @@ export default function ReaderPageClient() {
         chapterIndex={currentChapterIndex}
         totalChapters={book.chapterCount}
         onChapterChange={handleTtsChapterChange}
+        play={play}
+        pause={pause}
+        resume={resume}
+        stop={stopTts}
       />
     </div>
   );

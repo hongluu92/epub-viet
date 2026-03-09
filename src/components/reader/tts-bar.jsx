@@ -1,6 +1,5 @@
 'use client';
 
-import { useTts } from '@/hooks/use-tts';
 import { useTtsStore } from '@/lib/stores/tts-store';
 import { useAppStore } from '@/lib/stores/app-store';
 
@@ -8,8 +7,17 @@ import { useAppStore } from '@/lib/stores/app-store';
  * Bottom TTS control bar matching mockup design.
  * Shows: prev | play/pause | next | progress | speed | bookmark
  */
-export default function TtsBar({ sentences, sentenceMap, chapterIndex, totalChapters, onChapterChange }) {
-  const { play, pause, resume, stop } = useTts();
+export default function TtsBar({
+  sentences,
+  sentenceMap,
+  chapterIndex,
+  totalChapters,
+  onChapterChange,
+  play,
+  pause,
+  resume,
+  stop,
+}) {
   const { isPlaying, isPaused, modelLoading, modelProgress, preparing, currentFlatIndex } = useTtsStore();
   const { ttsSpeed, setTtsSpeed } = useAppStore();
 

@@ -8,6 +8,23 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  webpack: (config, { dev }) => {
+    if (dev) {
+      config.watchOptions = {
+        ...config.watchOptions,
+        ignored: [
+          '**/.git/**',
+          '**/.next/**',
+          '**/.claude/**',
+          '**/.opencode/**',
+          '**/plans/**',
+          '**/docs/**',
+          '**/node_modules/**',
+        ],
+      };
+    }
+    return config;
+  },
 };
 
 export default nextConfig;

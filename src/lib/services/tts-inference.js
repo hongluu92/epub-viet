@@ -6,6 +6,15 @@
 import { getSession } from './tts-model-loader';
 import { DEFAULT_SCALES } from '@/lib/utils/phoneme-id-map';
 
+function safeDisposeTensor(tensor) {
+  if (typeof tensor?.dispose !== 'function') return;
+  try {
+    tensor.dispose();
+  } catch (err) {
+    console.warn('[TTS] Tensor dispose skipped:', err);
+  }
+}
+
 /**
  * Run inference on phoneme IDs to produce raw audio float32 samples.
  * @param {number[]} phonemeIds - Array of phoneme IDs from phonemizer
@@ -37,6 +46,13 @@ export async function inferAudio(phonemeIds, speed = 1.0) {
     scales: new ort.Tensor('float32', scales, [3]),
   };
 
-  const results = await session.run(feeds);
-  return results.output.data;
+  let results;
+  try {
+    results = await session.run(feeds);
+    const outputData = results.output?.data;
+    return outputData ? new Float32Array(outputData) : new Float32Array();
+  } finally {
+    Object.values(feeds).forEach(safeDisposeTensor);
+    Object.values(results || {}).forEach(safeDisposeTensor);
+  }
 }

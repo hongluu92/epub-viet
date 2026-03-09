@@ -48,6 +48,12 @@ export default function SentenceSpan({ text, bookId, chapterIndex, paragraphInde
     clearTimeout(timerRef.current);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      clearTimeout(timerRef.current);
+    };
+  }, []);
+
   return (
     <span
       ref={spanRef}
@@ -58,6 +64,7 @@ export default function SentenceSpan({ text, bookId, chapterIndex, paragraphInde
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
       onContextMenu={(e) => {
         e.preventDefault();
         onLongPress?.({ text, chapterIndex, paragraphIndex, sentenceIndex, target: e.target });

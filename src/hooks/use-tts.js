@@ -10,9 +10,23 @@ import {
   pause as pauseEngine,
   resume as resumeEngine,
   stop as stopEngine,
+  dispose as disposeEngine,
 } from '@/lib/services/tts-engine';
 
-const PREFETCH_AHEAD = 2;
+const PREFETCH_AHEAD = 1;
+const STARTUP_BUFFER_COUNT = 2;
+const STARTUP_BUFFER_MAX_COUNT = 6;
+const STARTUP_BUFFER_TARGET_MS = 6000;
+const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+const sentencePreview = (text) => (text || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+const estimateSentenceMs = (text, speed) => {
+  const normalized = (text || '').trim();
+  const chars = normalized.length;
+  if (!chars) return 0;
+  // Rough estimate for Vietnamese TTS duration to drive startup buffering.
+  const baseMs = chars * 55 + 180;
+  return Math.round(baseMs / Math.max(0.5, speed || 1));
+};
 
 /**
  * React hook for TTS playback with sentence queue and 2-sentence prefetch.
@@ -20,7 +34,12 @@ const PREFETCH_AHEAD = 2;
  */
 export function useTts() {
   const prefetchCache = useRef(new Map());
+  const prefetchInFlight = useRef(new Map());
   const abortRef = useRef(false);
+  const playRunIdRef = useRef(0);
+  const playSpeedRef = useRef(1);
+  const warmupStartedRef = useRef(false);
+  const warmupPromiseRef = useRef(null);
 
   const {
     isPlaying, isPaused, modelLoaded, modelLoading, modelProgress, preparing,
@@ -30,10 +49,13 @@ export function useTts() {
 
   const ttsSpeed = useAppStore((s) => s.ttsSpeed);
 
-  // Clear prefetch cache when speed changes
+  // Keep one speed per playback session; speed changes apply next play.
+  // Clear cache only when idle.
   useEffect(() => {
+    if (isPlaying || preparing) return;
     prefetchCache.current.clear();
-  }, [ttsSpeed]);
+    prefetchInFlight.current.clear();
+  }, [ttsSpeed, isPlaying, preparing]);
 
   /** Load the ONNX model (call on first play) */
   const loadModel = useCallback(async () => {
@@ -50,20 +72,52 @@ export function useTts() {
     }
   }, [setModelLoading, setModelLoaded, setModelProgress]);
 
-  /** Prefetch audio buffers for upcoming sentences */
-  const prefetch = useCallback(async (sentences, startIdx, speed) => {
-    for (let i = startIdx; i < Math.min(startIdx + PREFETCH_AHEAD, sentences.length); i++) {
-      const key = `${i}-${speed}`;
-      if (!prefetchCache.current.has(key)) {
-        try {
-          const buffer = await synthesizeSentence(sentences[i], speed);
-          if (buffer) prefetchCache.current.set(key, buffer);
-        } catch (err) {
-          console.error(`Prefetch failed for sentence ${i}:`, err);
-        }
+  const getOrCreateBuffer = useCallback(async (sentences, idx, speed, runId) => {
+    const key = `${idx}-${speed}`;
+
+    const cached = prefetchCache.current.get(key);
+    if (cached) return cached;
+
+    const inflight = prefetchInFlight.current.get(key);
+    if (inflight) return inflight;
+
+    const task = (async () => {
+      const synthStart = now();
+      try {
+        const buffer = await synthesizeSentence(sentences[idx], speed);
+        if (abortRef.current || runId !== playRunIdRef.current) return null;
+        if (buffer) prefetchCache.current.set(key, buffer);
+        console.log('[TTS Timing] synth_ready', {
+          idx,
+          speed,
+          ms: Number((now() - synthStart).toFixed(1)),
+          text: sentencePreview(sentences[idx]),
+        });
+        return buffer;
+      } catch (err) {
+        console.error(`Synthesis failed for sentence ${idx}:`, err);
+        return null;
+      } finally {
+        prefetchInFlight.current.delete(key);
       }
-    }
+    })();
+
+    prefetchInFlight.current.set(key, task);
+    return task;
   }, []);
+
+  /** Prefetch only the nearest next sentence to protect current sentence latency */
+  const prefetch = useCallback((sentences, startIdx, speed, runId) => {
+    // Keep at most one background synth task to avoid stealing CPU from current sentence.
+    if (prefetchInFlight.current.size >= 1) return;
+    for (let i = startIdx; i < Math.min(startIdx + PREFETCH_AHEAD, sentences.length); i++) {
+      if (abortRef.current || runId !== playRunIdRef.current) break;
+      const key = `${i}-${speed}`;
+      if (prefetchCache.current.has(key) || prefetchInFlight.current.has(key)) continue;
+      void getOrCreateBuffer(sentences, i, speed, runId);
+      break;
+    }
+  }, [getOrCreateBuffer]);
 
   /**
    * Start playing from a specific position in the sentence list.
@@ -74,7 +128,13 @@ export function useTts() {
    */
   const play = useCallback(async (sentences, startIdx = 0, chapterIdx = 0, sentenceMap = []) => {
     if (!sentences?.length) return;
+    playRunIdRef.current += 1;
+    const runId = playRunIdRef.current;
+    playSpeedRef.current = useAppStore.getState().ttsSpeed;
     abortRef.current = false;
+    stopEngine();
+    prefetchCache.current.clear();
+    prefetchInFlight.current.clear();
     setPreparing(true);
 
     // Ensure ONNX session is ready (model must be in IndexedDB already)
@@ -86,13 +146,49 @@ export function useTts() {
       return;
     }
 
+    if (abortRef.current || runId !== playRunIdRef.current) {
+      setPreparing(false);
+      return;
+    }
+
+    // Prepare first N sentences before starting playback to avoid
+    // short-sentence stalls at the beginning of a chapter/session.
+    let startupBufferedCount = 0;
+    let startupEstimatedMs = 0;
+    const startupLimit = Math.min(sentences.length, startIdx + STARTUP_BUFFER_MAX_COUNT);
+    for (let i = startIdx; i < startupLimit; i++) {
+      const startupSpeed = playSpeedRef.current;
+      await getOrCreateBuffer(sentences, i, startupSpeed, runId);
+      startupBufferedCount += 1;
+      startupEstimatedMs += estimateSentenceMs(sentences[i], startupSpeed);
+      if (abortRef.current || runId !== playRunIdRef.current) {
+        setPreparing(false);
+        return;
+      }
+      if (startupBufferedCount >= STARTUP_BUFFER_COUNT && startupEstimatedMs >= STARTUP_BUFFER_TARGET_MS) {
+        break;
+      }
+    }
+
     setPlaying(true);
+    console.log('[TTS Timing] play_start', {
+      chapterIdx,
+      startIdx,
+      totalSentences: sentences.length,
+      speedLocked: playSpeedRef.current,
+      startupBuffered: startupBufferedCount,
+      startupEstimatedMs,
+      ts: new Date().toISOString(),
+    });
+
+    // Prime prefetch window before entering playback loop.
+    prefetch(sentences, startIdx, playSpeedRef.current, runId);
+    let previousSentenceEndAt = now();
 
     for (let i = startIdx; i < sentences.length; i++) {
-      if (abortRef.current) break;
+      if (abortRef.current || runId !== playRunIdRef.current) break;
 
-      // Read speed each iteration so mid-playback changes take effect
-      const speed = useAppStore.getState().ttsSpeed;
+      const speed = playSpeedRef.current;
 
       // Use coordinate map to set correct paragraph/sentence for highlighting
       const coords = sentenceMap[i] || { paragraphIndex: 0, sentenceIndex: i };
@@ -100,38 +196,66 @@ export function useTts() {
 
       // Get or synthesize current sentence (skip empty)
       const cacheKey = `${i}-${speed}`;
-      let buffer = prefetchCache.current.get(cacheKey);
-      if (!buffer) {
-        try {
-          buffer = await synthesizeSentence(sentences[i], speed);
-        } catch (err) {
-          console.error(`Synthesis failed for sentence ${i}:`, err);
-          continue;
-        }
-      }
+      const waitStart = now();
+      let buffer = await getOrCreateBuffer(sentences, i, speed, runId);
+      const waitMs = now() - waitStart;
       prefetchCache.current.delete(cacheKey);
 
       // Skip null buffers (empty text)
-      if (!buffer) continue;
-      if (abortRef.current) break;
+      if (!buffer) {
+        // One retry for the current sentence before giving up.
+        prefetchInFlight.current.delete(cacheKey);
+        buffer = await getOrCreateBuffer(sentences, i, speed, runId);
+      }
+      if (!buffer) {
+        console.warn('[TTS Timing] sentence_skipped', {
+          idx: i,
+          reason: 'buffer_null_or_synthesis_failed',
+          speedLocked: speed,
+          text: sentencePreview(sentences[i]),
+        });
+        continue;
+      }
+      if (abortRef.current || runId !== playRunIdRef.current) break;
+
+      const gapMs = now() - previousSentenceEndAt;
+      console.log('[TTS Timing] sentence_start', {
+        idx: i,
+        speed,
+        waitBufferMs: Number(waitMs.toFixed(1)),
+        gapFromPreviousEndMs: Number(gapMs.toFixed(1)),
+        text: sentencePreview(sentences[i]),
+      });
 
       // Start prefetching next sentences in background
-      prefetch(sentences, i + 1, speed);
+      prefetch(sentences, i + 1, speed, runId);
 
       // Play current sentence and wait for it to end
       try {
+        const playStart = now();
         await playSentence(buffer);
+        const playMs = now() - playStart;
+        previousSentenceEndAt = now();
+        console.log('[TTS Timing] sentence_end', {
+          idx: i,
+          playMs: Number(playMs.toFixed(1)),
+          text: sentencePreview(sentences[i]),
+        });
       } catch (err) {
-        if (abortRef.current) break;
+        if (abortRef.current || runId !== playRunIdRef.current) break;
         console.error(`Playback failed for sentence ${i}:`, err);
       }
     }
 
-    if (!abortRef.current) {
+    if (!abortRef.current && runId === playRunIdRef.current) {
       setPlaying(false);
       reset();
+      console.log('[TTS Timing] play_end', {
+        chapterIdx,
+        ts: new Date().toISOString(),
+      });
     }
-  }, [setPlaying, setPosition, setModelLoaded, setModelLoading, setModelProgress, prefetch, reset]);
+  }, [getOrCreateBuffer, prefetch, reset, setModelProgress, setPlaying, setPosition, setPreparing]);
 
   const pauseTts = useCallback(async () => {
     await pauseEngine();
@@ -144,15 +268,48 @@ export function useTts() {
   }, [setPaused]);
 
   const stopTts = useCallback(() => {
+    playRunIdRef.current += 1;
     abortRef.current = true;
     stopEngine();
     prefetchCache.current.clear();
+    prefetchInFlight.current.clear();
+    setPreparing(false);
     setPlaying(false);
     reset();
-  }, [setPlaying, reset]);
+  }, [setPlaying, reset, setPreparing]);
+
+  const warmup = useCallback(async () => {
+    if (warmupStartedRef.current) return warmupPromiseRef.current;
+    warmupStartedRef.current = true;
+    warmupPromiseRef.current = (async () => {
+      try {
+        await initEngine((progress) => setModelProgress(progress));
+        // Warm phonemizer + inference path to reduce first-play stall.
+        await synthesizeSentence('xin chao', useAppStore.getState().ttsSpeed);
+      } catch (err) {
+        console.warn('[TTS] Warmup skipped:', err);
+      }
+    })();
+    return warmupPromiseRef.current;
+  }, [setModelProgress]);
+
+  const disposeTts = useCallback(() => {
+    playRunIdRef.current += 1;
+    abortRef.current = true;
+    prefetchCache.current.clear();
+    prefetchInFlight.current.clear();
+    warmupStartedRef.current = false;
+    warmupPromiseRef.current = null;
+    setPreparing(false);
+    setPlaying(false);
+    reset();
+    void disposeEngine().catch((err) => {
+      console.error('TTS dispose failed:', err);
+    });
+  }, [setPlaying, reset, setPreparing]);
 
   return {
     isPlaying, isPaused, preparing, modelLoaded, modelLoading, modelProgress,
-    loadModel, play, pause: pauseTts, resume: resumeTts, stop: stopTts,
+    loadModel, play, pause: pauseTts, resume: resumeTts, stop: stopTts, warmup, dispose: disposeTts,
   };
 }
