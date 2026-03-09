@@ -47,8 +47,7 @@ export function useTts() {
 
   const ttsSpeed = useAppStore((s) => s.ttsSpeed);
 
-  // Keep one speed per playback session; speed changes apply next play.
-  // Clear cache only when idle.
+  // Clear prefetch cache when speed changes while idle.
   useEffect(() => {
     if (isPlaying || preparing) return;
     prefetchCache.current.clear();
@@ -170,7 +169,13 @@ export function useTts() {
     for (let i = startIdx; i < sentences.length; i++) {
       if (abortRef.current || runId !== playRunIdRef.current) break;
 
-      const speed = playSpeedRef.current;
+      // Re-read speed from store each sentence so mid-playback changes apply
+      const speed = useAppStore.getState().ttsSpeed;
+      if (speed !== playSpeedRef.current) {
+        prefetchCache.current.clear();
+        prefetchInFlight.current.clear();
+        playSpeedRef.current = speed;
+      }
 
       // Use coordinate map to set correct paragraph/sentence for highlighting
       const coords = sentenceMap[i] || { paragraphIndex: 0, sentenceIndex: i };
