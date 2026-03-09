@@ -114,8 +114,9 @@ export async function getEpubDownloadUrl(bookId) {
 export async function downloadAndImportEpub(bookInfo, onProgress = () => {}) {
   onProgress(0.1);
 
-  // Get CDN URL
-  const epubUrl = await getEpubDownloadUrl(bookInfo.id);
+  // Use stored epubUrl directly if available (re-download from cloud).
+  // For first-time downloads bookInfo.id is the timsach ID, so scrape from that.
+  const epubUrl = bookInfo.epubUrl || await getEpubDownloadUrl(bookInfo.id);
   onProgress(0.2);
 
   // Download EPUB blob via proxy (CDN lacks CORS headers)
@@ -140,7 +141,11 @@ export async function downloadAndImportEpub(bookInfo, onProgress = () => {}) {
   if (bookInfo.author) metadata.author = bookInfo.author;
   if (bookInfo.coverUrl) metadata.coverUrl = bookInfo.coverUrl;
   metadata.source = 'timsach';
-  metadata.timsachId = bookInfo.id;
+  metadata.timsachId = bookInfo.timsachId || bookInfo.id; // timsachId = actual timsach book ID
+  metadata.epubUrl = epubUrl; // store for cross-device re-download without re-scraping
+
+  // For re-downloads: preserve the cloud book's ID so the placeholder is replaced, not duplicated
+  if (bookInfo.epubUrl) metadata.id = bookInfo.id;
 
   // Save to IndexedDB
   await addBook(metadata);

@@ -12,23 +12,76 @@ export const useLibraryStore = create((set) => ({
   setCurrentBook: (book) => set({ currentBook: book }),
   setLoading: (isLoading) => set({ isLoading }),
 
-  /** Load all books from IndexedDB */
+  /** Load all books from IndexedDB, preserving cloud-only placeholders and cloud progress */
   loadBooks: async () => {
     set({ isLoading: true });
     try {
-      const books = await db.getBooks();
-      // Sort by most recently read/added (newest first)
-      books.sort((a, b) => (b.lastReadAt || b.addedAt || 0) - (a.lastReadAt || a.addedAt || 0));
-      set({ books, isLoading: false });
+      const localBooks = await db.getBooks();
+      localBooks.sort((a, b) => (b.lastReadAt || b.addedAt || 0) - (a.lastReadAt || a.addedAt || 0));
+      set((state) => {
+        const localIds = new Set(localBooks.map((b) => b.id));
+        // Keep cloud-only entries
+        const cloudOnly = state.books.filter((b) => b.epubAvailable === false && !localIds.has(b.id));
+        // Preserve cloud progress if state has a newer version (mergeCloudBooks may have run first)
+        const merged = localBooks.map((lb) => {
+          const inState = state.books.find((b) => b.id === lb.id);
+          if (!inState) return lb;
+          const stateTs = inState.lastReadAt || 0;
+          const localTs = lb.lastReadAt || 0;
+          if (stateTs <= localTs) return lb;
+          return {
+            ...lb,
+            currentChapter: inState.currentChapter ?? lb.currentChapter,
+            scrollProgress: inState.scrollProgress ?? lb.scrollProgress,
+            readingProgress: inState.readingProgress ?? lb.readingProgress,
+            lastReadAt: inState.lastReadAt,
+          };
+        });
+        return { books: [...merged, ...cloudOnly], isLoading: false };
+      });
     } catch {
       set({ isLoading: false });
     }
   },
 
   /** Add book to store (IndexedDB save happens in upload-modal) */
-  addBook: (book) => set((state) => ({ books: [...state.books, book] })),
+  addBook: (book) => set((state) => {
+    // Replace cloud-only placeholder if this book was already synced from cloud
+    const filtered = state.books.filter((b) => b.id !== book.id);
+    return { books: [...filtered, { ...book, epubAvailable: true }] };
+  }),
 
-  /** Remove book from IndexedDB and store */
+  /** Merge cloud books: update progress for existing local books if cloud is newer,
+   *  and add cloud-only books as downloadable placeholders */
+  mergeCloudBooks: (cloudBooks) => set((state) => {
+    const localIds = new Set(state.books.map((b) => b.id));
+
+    // Update progress for existing local books when cloud version is newer
+    const updatedBooks = state.books.map((b) => {
+      const cloud = cloudBooks.find((cb) => cb.id === b.id);
+      if (!cloud) return b;
+      // Firestore Timestamp has toMillis(), plain number also works
+      const cloudTs = cloud.updatedAt?.toMillis?.() || cloud.updatedAt || 0;
+      const localTs = b.lastReadAt || 0;
+      if (cloudTs <= localTs) return b;
+      return {
+        ...b,
+        currentChapter: cloud.currentChapter ?? b.currentChapter,
+        scrollProgress: cloud.scrollProgress ?? b.scrollProgress,
+        readingProgress: cloud.readingProgress ?? b.readingProgress,
+        lastReadAt: cloud.lastReadAt || b.lastReadAt,
+      };
+    });
+
+    // Add books that only exist in cloud (not downloaded locally)
+    const cloudOnly = cloudBooks
+      .filter((cb) => !localIds.has(cb.id))
+      .map((cb) => ({ ...cb, epubAvailable: false }));
+
+    return { books: [...updatedBooks, ...cloudOnly] };
+  }),
+
+  /** Remove book from IndexedDB, store, and optionally cloud */
   removeBook: async (bookId) => {
     await db.deleteBook(bookId);
     set((state) => ({

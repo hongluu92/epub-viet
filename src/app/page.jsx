@@ -7,6 +7,8 @@ import { prefetchOnnxRuntime } from '@/lib/utils/prefetch-onnx';
 import { useEpubUpload } from '@/components/upload-modal';
 import { HomeHeader, BookCard, GenreChips } from '@/components/home';
 import { BookShelfSkeleton } from '@/components/loading-skeleton';
+import { useAuth } from '@/hooks/use-auth';
+import { syncBookMetadata, deleteBookFromCloud } from '@/lib/services/firebase-sync-service';
 import {
   GENRE_SLUG_MAP, fetchBooksByGenre, downloadAndImportEpub, searchBooks,
 } from '@/lib/services/timsach-service';
@@ -17,6 +19,7 @@ export default function HomePage() {
   const { books, isLoading, loadBooks, removeBook } = useLibraryStore();
   const addBookToStore = useLibraryStore((s) => s.addBook);
   const { triggerUpload, UploadProgress } = useEpubUpload();
+  const { user } = useAuth();
   const [activeGenre, setActiveGenre] = useState(firstGenre);
 
   // Timsach browse state
@@ -113,21 +116,26 @@ export default function HomePage() {
     return () => observer.disconnect();
   }, [loadMore, browseBooks.length]);
 
-  // Download and import a timsach book
+  // Download and import a timsach book (from store or kho sach)
   const handleDownload = useCallback(async (book) => {
     if (downloadingId) return;
     setDownloadingId(book.id);
     try {
       const metadata = await downloadAndImportEpub(book);
       addBookToStore(metadata);
+      // Sync metadata to cloud after download
+      if (user?.uid) syncBookMetadata(user.uid, metadata);
     } catch (err) {
       console.error('Download failed:', err);
     } finally {
       setDownloadingId(null);
     }
-  }, [downloadingId, addBookToStore]);
+  }, [downloadingId, addBookToStore, user]);
 
   const isSearching = searchQuery.trim().length >= 2;
+  // Split local books (have epub) from cloud-only (need re-download)
+  const localBooks = books.filter((b) => b.epubAvailable !== false);
+  const cloudOnlyBooks = books.filter((b) => b.epubAvailable === false);
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
@@ -142,13 +150,25 @@ export default function HomePage() {
         </div>
         {isLoading ? (
           <BookShelfSkeleton count={3} />
-        ) : books.length > 0 ? (
+        ) : (localBooks.length > 0 || cloudOnlyBooks.length > 0) ? (
           <div
             className="flex gap-3 px-4 pb-2 overflow-x-auto"
             style={{ scrollbarWidth: 'none' }}
           >
-            {books.map((book) => (
-              <BookCard key={book.id} book={book} onDelete={(b) => removeBook(b.id)} />
+            {localBooks.map((book) => (
+              <BookCard key={book.id} book={book} onDelete={(b) => {
+                removeBook(b.id);
+                if (user?.uid) deleteBookFromCloud(user.uid, b.id);
+              }} />
+            ))}
+            {/* Cloud-only books: synced from another device, epub not downloaded yet */}
+            {cloudOnlyBooks.map((book) => (
+              <BookCard
+                key={book.id}
+                book={book}
+                onDownload={book.epubUrl ? handleDownload : undefined}
+                isDownloading={downloadingId === book.id}
+              />
             ))}
           </div>
         ) : (

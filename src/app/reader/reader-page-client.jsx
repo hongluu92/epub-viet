@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { getBook, getChapter, getChapterTitlesByBook } from '@/lib/services/indexeddb-service';
 import { useLibraryStore } from '@/lib/stores/library-store';
+import { useAuth } from '@/hooks/use-auth';
+import { syncBookProgress, getBookProgress } from '@/lib/services/firebase-sync-service';
 import { useTts } from '@/hooks/use-tts';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { isModelCached, downloadModel } from '@/lib/services/tts-model-loader';
@@ -30,6 +32,7 @@ export default function ReaderPageClient() {
   const [isLoading, setIsLoading] = useState(true);
 
   const updateBookProgress = useLibraryStore((s) => s.updateBookProgress);
+  const { user } = useAuth();
   const { play, pause, resume, stop: stopTts, warmup, dispose: disposeTts } = useTts();
   const autoPlayChapterRef = useRef(null);
   const saveTimerRef = useRef(null);
@@ -47,12 +50,15 @@ export default function ReaderPageClient() {
 
   const persistReadingPosition = useCallback((targetBook, chapterIndex, localScroll) => {
     if (!targetBook?.id) return;
-    void updateBookProgress(targetBook.id, {
+    const progress = {
       currentChapter: chapterIndex,
       scrollProgress: Math.min(1, Math.max(0, localScroll || 0)),
       readingProgress: getOverallReadingProgress(chapterIndex, localScroll, targetBook.chapterCount),
-    });
-  }, [updateBookProgress, getOverallReadingProgress]);
+    };
+    void updateBookProgress(targetBook.id, progress);
+    // Sync to cloud so other devices pick up the latest reading position
+    if (user?.uid) syncBookProgress(user.uid, targetBook.id, progress);
+  }, [updateBookProgress, getOverallReadingProgress, user]);
 
   useEffect(() => {
     latestBookRef.current = book;
@@ -75,8 +81,23 @@ export default function ReaderPageClient() {
         const bookData = await getBook(id);
         if (!bookData) return;
         setBook(bookData);
-        setCurrentChapterIndex(bookData.currentChapter || 0);
-        setScrollProgress(bookData.scrollProgress || 0);
+
+        // Use cloud progress if it's newer than local (cross-device sync)
+        let startChapter = bookData.currentChapter || 0;
+        let startScroll = bookData.scrollProgress || 0;
+        if (user?.uid) {
+          const cloudProgress = await getBookProgress(user.uid, id);
+          if (cloudProgress?.updatedAt) {
+            const cloudTs = cloudProgress.updatedAt?.toMillis?.() || 0;
+            const localTs = bookData.lastReadAt || 0;
+            if (cloudTs > localTs) {
+              startChapter = cloudProgress.currentChapter || 0;
+              startScroll = cloudProgress.scrollProgress || 0;
+            }
+          }
+        }
+        setCurrentChapterIndex(startChapter);
+        setScrollProgress(startScroll);
 
         // Get chapter titles only (lightweight — skips full content)
         const titles = await getChapterTitlesByBook(id);
@@ -84,8 +105,7 @@ export default function ReaderPageClient() {
         setChapterMeta(titles);
 
         // Load starting chapter
-        const startIdx = bookData.currentChapter || 0;
-        const firstChapter = await getChapter(id, startIdx);
+        const firstChapter = await getChapter(id, startChapter);
         if (firstChapter) {
           setLoadedChapters([firstChapter]);
         }
@@ -97,7 +117,7 @@ export default function ReaderPageClient() {
     }
 
     load();
-  }, [id]);
+  }, [id, user]);
 
   // Download TTS model to IndexedDB in background (if not cached)
   const setModelLoading = useTtsStore((s) => s.setModelLoading);

@@ -15,13 +15,13 @@ export default function BookCard({ book, onDownload, isDownloading, onDelete }) 
 
   const Wrapper = onDownload ? 'div' : Link;
   const wrapperProps = onDownload
-    ? { className: 'flex-shrink-0 w-[100px]' }
-    : { href: `/reader?id=${book.id}`, className: 'flex-shrink-0 w-[100px]' };
+    ? { className: 'flex-shrink-0 w-[100px] group' }
+    : { href: `/reader?id=${book.id}`, className: 'flex-shrink-0 w-[100px] group' };
 
   return (
     <Wrapper {...wrapperProps}>
       {/* Cover + progress bar + download button */}
-      <div className="relative group" style={{ width: 100, height: 140 }}>
+      <div className="relative" style={{ width: 100, height: 140 }}>
         <BookCover
           coverUrl={book.coverUrl}
           title={book.title}

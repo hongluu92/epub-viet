@@ -43,6 +43,18 @@ export const syncBookProgress = debounce(async (uid, bookId, progress) => {
   }
 }, 500);
 
+/** Fetch reading progress for a single book from Firestore */
+export async function getBookProgress(uid, bookId) {
+  if (!isEnabled()) return null;
+  try {
+    const snap = await getDoc(doc(db, 'users', uid, 'books', bookId));
+    return snap.exists() ? snap.data() : null;
+  } catch (err) {
+    console.error('[sync] getBookProgress failed:', err);
+    return null;
+  }
+}
+
 /** Add or remove bookmark in users/{uid}/bookmarks/{key} */
 export async function syncBookmark(uid, bookmark, action) {
   if (!isEnabled()) return;
@@ -98,5 +110,33 @@ export async function fetchLibrary(uid) {
   } catch (err) {
     console.error('[sync] fetchLibrary failed:', err);
     return [];
+  }
+}
+
+/** Sync book metadata (title, author, cover, source) to Firestore — no epub content */
+export async function syncBookMetadata(uid, book) {
+  if (!isEnabled()) return;
+  // Only persist fields needed to show the book in the library on another device
+  const { id, title, author, coverUrl, source, timsachId, epubUrl, chapterCount, addedAt } = book;
+  try {
+    await setDoc(doc(db, 'users', uid, 'books', id), {
+      title, author, coverUrl: coverUrl || null,
+      source: source || 'local', timsachId: timsachId || null,
+      epubUrl: epubUrl || null, // enables re-download on other devices without re-scraping
+      chapterCount: chapterCount || null, addedAt: addedAt || Date.now(),
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+  } catch (err) {
+    console.error('[sync] syncBookMetadata failed:', err);
+  }
+}
+
+/** Remove book from Firestore */
+export async function deleteBookFromCloud(uid, bookId) {
+  if (!isEnabled()) return;
+  try {
+    await deleteDoc(doc(db, 'users', uid, 'books', bookId));
+  } catch (err) {
+    console.error('[sync] deleteBookFromCloud failed:', err);
   }
 }

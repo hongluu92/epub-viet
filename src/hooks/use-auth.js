@@ -3,11 +3,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { signInWithGoogle, signOutUser, onAuthStateChanged, deleteUserAccount } from '@/lib/services/firebase-auth-service';
 import { fetchLibrary, subscribeToChanges } from '@/lib/services/firebase-sync-service';
+import { useLibraryStore } from '@/lib/stores/library-store';
 
 export function useAuth() {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const listenersRef = useRef(null);
+  const mergeCloudBooks = useLibraryStore((s) => s.mergeCloudBooks);
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(async (firebaseUser) => {
@@ -15,10 +17,16 @@ export function useAuth() {
       setIsLoading(false);
 
       if (firebaseUser) {
-        await fetchLibrary(firebaseUser.uid);
+        // Fetch cloud library and surface books not yet downloaded locally
+        const cloudBooks = await fetchLibrary(firebaseUser.uid);
+        if (cloudBooks.length > 0) mergeCloudBooks(cloudBooks);
+
         // Clean up previous listeners before starting new ones
         if (listenersRef.current) listenersRef.current();
-        listenersRef.current = subscribeToChanges(firebaseUser.uid, {});
+        listenersRef.current = subscribeToChanges(firebaseUser.uid, {
+          // Real-time: merge new cloud books added on another device
+          onBooks: (books) => mergeCloudBooks(books),
+        });
       } else {
         if (listenersRef.current) {
           listenersRef.current();
@@ -34,7 +42,7 @@ export function useAuth() {
         listenersRef.current = null;
       }
     };
-  }, []);
+  }, [mergeCloudBooks]);
 
   const signIn = useCallback(async () => {
     try {
