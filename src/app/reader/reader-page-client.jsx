@@ -14,6 +14,8 @@ import ReaderContent from '@/components/reader/reader-content';
 import BookmarkPopup from '@/components/reader/bookmark-popup';
 import TtsBar from '@/components/reader/tts-bar';
 
+const SAVE_PROGRESS_DEBOUNCE_MS = 800;
+
 export default function ReaderPageClient() {
   const searchParams = useSearchParams();
   const id = searchParams.get('id');
@@ -29,6 +31,37 @@ export default function ReaderPageClient() {
   const updateBookProgress = useLibraryStore((s) => s.updateBookProgress);
   const { play, pause, resume, stop: stopTts, warmup, dispose: disposeTts } = useTts();
   const autoPlayChapterRef = useRef(null);
+  const saveTimerRef = useRef(null);
+  const latestBookRef = useRef(null);
+  const latestChapterRef = useRef(0);
+  const latestScrollRef = useRef(0);
+
+  const getOverallReadingProgress = useCallback((chapterIndex, localScroll, chapterCount) => {
+    if (!chapterCount) return 0;
+    const clampedLocal = Math.min(1, Math.max(0, localScroll || 0));
+    return Math.min(1, Math.max(0, (chapterIndex + clampedLocal) / chapterCount));
+  }, []);
+
+  const persistReadingPosition = useCallback((targetBook, chapterIndex, localScroll) => {
+    if (!targetBook?.id) return;
+    void updateBookProgress(targetBook.id, {
+      currentChapter: chapterIndex,
+      scrollProgress: Math.min(1, Math.max(0, localScroll || 0)),
+      readingProgress: getOverallReadingProgress(chapterIndex, localScroll, targetBook.chapterCount),
+    });
+  }, [updateBookProgress, getOverallReadingProgress]);
+
+  useEffect(() => {
+    latestBookRef.current = book;
+  }, [book]);
+
+  useEffect(() => {
+    latestChapterRef.current = currentChapterIndex;
+  }, [currentChapterIndex]);
+
+  useEffect(() => {
+    latestScrollRef.current = scrollProgress;
+  }, [scrollProgress]);
 
   // Load book and first chapter
   useEffect(() => {
@@ -40,6 +73,7 @@ export default function ReaderPageClient() {
         if (!bookData) return;
         setBook(bookData);
         setCurrentChapterIndex(bookData.currentChapter || 0);
+        setScrollProgress(bookData.scrollProgress || 0);
 
         // Get all chapters for metadata (titles)
         const allChapters = await getChaptersByBook(id);
@@ -95,8 +129,16 @@ export default function ReaderPageClient() {
 
   // Stop TTS when leaving the reader page
   useEffect(() => {
-    return () => disposeTts();
-  }, [disposeTts]);
+    return () => {
+      clearTimeout(saveTimerRef.current);
+      persistReadingPosition(
+        latestBookRef.current,
+        latestChapterRef.current,
+        latestScrollRef.current
+      );
+      disposeTts();
+    };
+  }, [disposeTts, persistReadingPosition]);
 
   // Load next chapter for infinite scroll
   const loadNextChapter = useCallback(async () => {
@@ -124,9 +166,14 @@ export default function ReaderPageClient() {
     if (chapter) {
       setLoadedChapters([chapter]);
       setCurrentChapterIndex(index);
-      updateBookProgress(book.id, { currentChapter: index, readingProgress: index / book.chapterCount });
+      setScrollProgress(0);
+      updateBookProgress(book.id, {
+        currentChapter: index,
+        scrollProgress: 0,
+        readingProgress: getOverallReadingProgress(index, 0, book.chapterCount),
+      });
     }
-  }, [book, updateBookProgress, stopTts]);
+  }, [book, updateBookProgress, stopTts, getOverallReadingProgress]);
 
   // Update current chapter when scrolling through chapters
   const handleVisibleChapterChange = useCallback((chapterIndex) => {
@@ -134,30 +181,63 @@ export default function ReaderPageClient() {
     if (book) {
       updateBookProgress(book.id, {
         currentChapter: chapterIndex,
-        readingProgress: chapterIndex / (book.chapterCount || 1),
+        scrollProgress,
+        readingProgress: getOverallReadingProgress(chapterIndex, scrollProgress, book.chapterCount),
       });
     }
-  }, [book, updateBookProgress]);
+  }, [book, updateBookProgress, scrollProgress, getOverallReadingProgress]);
 
   // Save progress on scroll
   const handleScrollProgress = useCallback((progress) => {
     setScrollProgress(progress);
-  }, []);
+    if (!book) return;
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      persistReadingPosition(book, latestChapterRef.current, progress);
+    }, SAVE_PROGRESS_DEBOUNCE_MS);
+  }, [book, persistReadingPosition]);
 
   // Change chapter from TtsBar — stop TTS, clear state, load new chapter, auto-play
-  const handleTtsChapterChange = useCallback(async (index) => {
+  const changeTtsChapter = useCallback(async (index, { stopFirst = true, autoPlay = false } = {}) => {
     if (!book) return;
-    stopTts();
+    if (index < 0 || index >= book.chapterCount) return;
+    if (stopFirst) stopTts();
     const chapter = await getChapter(book.id, index);
     if (!chapter) return;
 
     setLoadedChapters([chapter]);
     setCurrentChapterIndex(index);
-    updateBookProgress(book.id, { currentChapter: index, readingProgress: index / book.chapterCount });
+    setScrollProgress(0);
+    updateBookProgress(book.id, {
+      currentChapter: index,
+      scrollProgress: 0,
+      readingProgress: getOverallReadingProgress(index, 0, book.chapterCount),
+    });
 
-    // Mark for auto-play after state updates
-    autoPlayChapterRef.current = index;
-  }, [book, updateBookProgress, stopTts]);
+    if (autoPlay) {
+      // Mark for auto-play after state updates
+      autoPlayChapterRef.current = index;
+    }
+  }, [book, updateBookProgress, stopTts, getOverallReadingProgress]);
+
+  const handleTtsChapterChange = useCallback(async (index) => {
+    await changeTtsChapter(index, { stopFirst: true, autoPlay: true });
+  }, [changeTtsChapter]);
+
+  const handleTtsPlayComplete = useCallback(async ({ reason, chapterIdx: finishedChapter }) => {
+    if (reason !== 'finished' || !book) return;
+    const nextChapter = finishedChapter + 1;
+    if (nextChapter >= book.chapterCount) return;
+    await changeTtsChapter(nextChapter, { stopFirst: false, autoPlay: true });
+  }, [book, changeTtsChapter]);
+
+  const playWithAutoAdvance = useCallback((sentences, startIdx = 0, chapterIdx = 0, map = []) => {
+    return play(sentences, startIdx, chapterIdx, map, {
+      onComplete: (result) => {
+        void handleTtsPlayComplete(result);
+      },
+    });
+  }, [play, handleTtsPlayComplete]);
 
   // Auto-play first sentence when chapter changes via TtsBar
   useEffect(() => {
@@ -185,11 +265,11 @@ export default function ReaderPageClient() {
     }
 
     if (flat.length > 0) {
-      play(flat, 0, currentChapterIndex, map);
+      playWithAutoAdvance(flat, 0, currentChapterIndex, map);
     }
 
     autoPlayChapterRef.current = null;
-  }, [loadedChapters, currentChapterIndex, play]);
+  }, [loadedChapters, currentChapterIndex, playWithAutoAdvance]);
 
   if (isLoading) {
     return (
@@ -231,6 +311,9 @@ export default function ReaderPageClient() {
   const hasMore =
     loadedChapters.length > 0 &&
     loadedChapters[loadedChapters.length - 1].chapterIndex < book.chapterCount - 1;
+  const playStartIndex = flatSentences.length > 0
+    ? Math.min(flatSentences.length - 1, Math.max(0, Math.floor(scrollProgress * flatSentences.length)))
+    : 0;
 
   return (
     <div className="h-screen flex flex-col relative" style={{ backgroundColor: 'var(--bg)' }}>
@@ -249,6 +332,7 @@ export default function ReaderPageClient() {
       <ReaderContent
         loadedChapters={loadedChapters}
         bookId={book.id}
+        initialScrollProgress={scrollProgress}
         onLoadNext={loadNextChapter}
         hasMore={hasMore}
         onScrollProgress={handleScrollProgress}
@@ -268,7 +352,7 @@ export default function ReaderPageClient() {
             );
             if (flatIdx >= 0) {
               stopTts();
-              play(flatSentences, flatIdx, currentChapterIndex, sentenceMap);
+              playWithAutoAdvance(flatSentences, flatIdx, currentChapterIndex, sentenceMap);
             }
           }}
           onClose={() => setPopupData(null)}
@@ -280,8 +364,9 @@ export default function ReaderPageClient() {
         sentenceMap={sentenceMap}
         chapterIndex={currentChapterIndex}
         totalChapters={book.chapterCount}
+        playStartIndex={playStartIndex}
         onChapterChange={handleTtsChapterChange}
-        play={play}
+        play={playWithAutoAdvance}
         pause={pause}
         resume={resume}
         stop={stopTts}

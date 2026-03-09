@@ -12,6 +12,7 @@ export default function TtsBar({
   sentenceMap,
   chapterIndex,
   totalChapters,
+  playStartIndex = 0,
   onChapterChange,
   play,
   pause,
@@ -32,7 +33,7 @@ export default function TtsBar({
     } else if (isPaused) {
       await resume();
     } else {
-      await play(sentences, 0, chapterIndex, sentenceMap);
+      await play(sentences, playStartIndex, chapterIndex, sentenceMap);
     }
   };
 

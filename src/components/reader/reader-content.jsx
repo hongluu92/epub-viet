@@ -9,6 +9,7 @@ import ChapterDivider from './chapter-divider';
 export default function ReaderContent({
   loadedChapters,
   bookId,
+  initialScrollProgress = 0,
   onLoadNext,
   hasMore,
   onScrollProgress,
@@ -17,6 +18,7 @@ export default function ReaderContent({
 }) {
   const containerRef = useRef(null);
   const sentinelRef = useRef(null);
+  const restoreDoneRef = useRef(false);
   const { fontSize, lineHeight, readerMargin, fontFamily } = useAppStore();
 
   // Infinite scroll via IntersectionObserver
@@ -72,6 +74,27 @@ export default function ReaderContent({
     const progress = el.scrollTop / (el.scrollHeight - el.clientHeight || 1);
     onScrollProgress?.(Math.min(1, Math.max(0, progress)));
   }, [onScrollProgress]);
+
+  // Restore saved scroll progress after chapter content is mounted.
+  useEffect(() => {
+    if (restoreDoneRef.current) return;
+    const el = containerRef.current;
+    if (!el || loadedChapters.length === 0) return;
+    restoreDoneRef.current = true;
+    const targetProgress = Math.min(1, Math.max(0, initialScrollProgress || 0));
+    if (targetProgress === 0) return;
+
+    const applyRestore = () => {
+      const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight);
+      el.scrollTop = maxScroll * targetProgress;
+      onScrollProgress?.(targetProgress);
+    };
+
+    requestAnimationFrame(() => {
+      applyRestore();
+      setTimeout(applyRestore, 120);
+    });
+  }, [loadedChapters, initialScrollProgress, onScrollProgress]);
 
   const fontFamilyValue = FONT_FAMILIES[fontFamily] || FONT_FAMILIES.lora;
 

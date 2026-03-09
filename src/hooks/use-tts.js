@@ -126,7 +126,8 @@ export function useTts() {
    * @param {number} chapterIdx - Current chapter index
    * @param {Array<{paragraphIndex: number, sentenceIndex: number}>} sentenceMap - Maps flat index to 2D coordinates
    */
-  const play = useCallback(async (sentences, startIdx = 0, chapterIdx = 0, sentenceMap = []) => {
+  const play = useCallback(async (sentences, startIdx = 0, chapterIdx = 0, sentenceMap = [], options = {}) => {
+    const { onComplete } = options;
     if (!sentences?.length) return;
     playRunIdRef.current += 1;
     const runId = playRunIdRef.current;
@@ -254,6 +255,7 @@ export function useTts() {
         chapterIdx,
         ts: new Date().toISOString(),
       });
+      onComplete?.({ reason: 'finished', chapterIdx });
     }
   }, [getOrCreateBuffer, prefetch, reset, setModelProgress, setPlaying, setPosition, setPreparing]);
 
