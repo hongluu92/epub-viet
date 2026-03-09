@@ -18,10 +18,12 @@ export const useTtsStore = create((set) => ({
 
   // Preparing state (between play press and first audio)
   preparing: false,
+  pausing: false,
 
-  setPlaying: (isPlaying) => set({ isPlaying, isPaused: false, preparing: false }),
-  setPaused: (isPaused) => set({ isPaused }),
+  setPlaying: (isPlaying) => set({ isPlaying, isPaused: false, preparing: false, pausing: false }),
+  setPaused: (isPaused) => set({ isPaused, pausing: false }),
   setPreparing: (preparing) => set({ preparing }),
+  setPausing: (pausing) => set({ pausing }),
   setModelLoaded: (modelLoaded) => set({ modelLoaded }),
   setModelLoading: (modelLoading) => set({ modelLoading }),
   setModelProgress: (modelProgress) => set({ modelProgress }),
@@ -33,6 +35,7 @@ export const useTtsStore = create((set) => ({
     set({
       isPlaying: false,
       isPaused: false,
+      pausing: false,
       currentChapter: 0,
       currentParagraph: 0,
       currentSentence: 0,

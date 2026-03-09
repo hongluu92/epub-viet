@@ -43,7 +43,7 @@ export function useTts() {
 
   const {
     isPlaying, isPaused, modelLoaded, modelLoading, modelProgress, preparing,
-    setPlaying, setPaused, setPreparing, setModelLoaded, setModelLoading, setModelProgress,
+    setPlaying, setPaused, setPreparing, setPausing, setModelLoaded, setModelLoading, setModelProgress,
     setPosition, reset,
   } = useTtsStore();
 
@@ -260,9 +260,14 @@ export function useTts() {
   }, [getOrCreateBuffer, prefetch, reset, setModelProgress, setPlaying, setPosition, setPreparing]);
 
   const pauseTts = useCallback(async () => {
-    await pauseEngine();
-    setPaused(true);
-  }, [setPaused]);
+    setPausing(true);
+    try {
+      await pauseEngine();
+      setPaused(true);
+    } finally {
+      setPausing(false);
+    }
+  }, [setPaused, setPausing]);
 
   const resumeTts = useCallback(async () => {
     await resumeEngine();
@@ -276,9 +281,10 @@ export function useTts() {
     prefetchCache.current.clear();
     prefetchInFlight.current.clear();
     setPreparing(false);
+    setPausing(false);
     setPlaying(false);
     reset();
-  }, [setPlaying, reset, setPreparing]);
+  }, [setPlaying, reset, setPreparing, setPausing]);
 
   const warmup = useCallback(async () => {
     if (warmupStartedRef.current) return warmupPromiseRef.current;
@@ -303,12 +309,13 @@ export function useTts() {
     warmupStartedRef.current = false;
     warmupPromiseRef.current = null;
     setPreparing(false);
+    setPausing(false);
     setPlaying(false);
     reset();
     void disposeEngine().catch((err) => {
       console.error('TTS dispose failed:', err);
     });
-  }, [setPlaying, reset, setPreparing]);
+  }, [setPlaying, reset, setPreparing, setPausing]);
 
   return {
     isPlaying, isPaused, preparing, modelLoaded, modelLoading, modelProgress,

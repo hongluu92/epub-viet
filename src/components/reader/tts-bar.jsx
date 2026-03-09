@@ -19,12 +19,12 @@ export default function TtsBar({
   resume,
   stop,
 }) {
-  const { isPlaying, isPaused, modelLoading, modelProgress, preparing, currentFlatIndex } = useTtsStore();
+  const { isPlaying, isPaused, modelLoading, modelProgress, preparing, pausing, currentFlatIndex } = useTtsStore();
   const { ttsSpeed, setTtsSpeed } = useAppStore();
 
   const totalSentences = sentences?.length || 0;
   const progress = totalSentences > 0 ? (currentFlatIndex / totalSentences) * 100 : 0;
-  const showLoading = modelLoading || preparing;
+  const showLoading = modelLoading || preparing || pausing;
 
   const handlePlayPause = async () => {
     if (showLoading) return;
@@ -95,7 +95,7 @@ export default function TtsBar({
       >
         {modelLoading ? (
           <span className="text-xs font-semibold">{modelProgress}%</span>
-        ) : preparing ? (
+        ) : preparing || pausing ? (
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="animate-spin">
             <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
           </svg>
