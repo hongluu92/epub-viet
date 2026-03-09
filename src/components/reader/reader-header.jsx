@@ -10,7 +10,7 @@ export default function ReaderHeader({ book, chapters, currentChapterIndex, onCh
 
   return (
     <header
-      className="sticky top-0 z-40 flex items-center gap-3 px-4 py-3 backdrop-blur-md border-b"
+      className="z-40 flex items-center gap-3 px-4 py-3 backdrop-blur-md border-b"
       style={{
         backgroundColor: 'var(--nav-bg)',
         borderColor: 'var(--border)',

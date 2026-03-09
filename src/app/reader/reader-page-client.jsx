@@ -313,7 +313,7 @@ export default function ReaderPageClient() {
     : 0;
 
   return (
-    <div className="h-screen flex flex-col relative" style={{ backgroundColor: 'var(--bg)' }}>
+    <div className="h-dvh flex flex-col relative" style={{ backgroundColor: 'var(--bg)' }}>
       <ReaderHeader
         book={book}
         chapters={chapterMeta}
