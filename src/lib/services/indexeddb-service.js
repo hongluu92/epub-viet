@@ -88,10 +88,25 @@ export async function getChapter(bookId, chapterIndex) {
   return db.get('chapters', [bookId, chapterIndex]);
 }
 
-/** Get all chapters for a book */
+/** Get all chapters for a book (full content) */
 export async function getChaptersByBook(bookId) {
   const db = await getDB();
   return db.getAllFromIndex('chapters', 'byBook', bookId);
+}
+
+/** Get chapter titles only (avoids loading full content from IndexedDB) */
+export async function getChapterTitlesByBook(bookId) {
+  const db = await getDB();
+  const tx = db.transaction('chapters', 'readonly');
+  const index = tx.store.index('byBook');
+  const results = [];
+  let cursor = await index.openCursor(bookId);
+  while (cursor) {
+    const { title, chapterIndex } = cursor.value;
+    results.push({ title, chapterIndex });
+    cursor = await cursor.continue();
+  }
+  return results;
 }
 
 /** Store raw EPUB file blob */

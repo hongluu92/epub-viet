@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { getBook, getChapter, getChaptersByBook } from '@/lib/services/indexeddb-service';
+import { getBook, getChapter, getChapterTitlesByBook } from '@/lib/services/indexeddb-service';
 import { useLibraryStore } from '@/lib/stores/library-store';
 import { useTts } from '@/hooks/use-tts';
 import { isModelCached, downloadModel } from '@/lib/services/tts-model-loader';
@@ -75,10 +75,10 @@ export default function ReaderPageClient() {
         setCurrentChapterIndex(bookData.currentChapter || 0);
         setScrollProgress(bookData.scrollProgress || 0);
 
-        // Get all chapters for metadata (titles)
-        const allChapters = await getChaptersByBook(id);
-        allChapters.sort((a, b) => a.chapterIndex - b.chapterIndex);
-        setChapterMeta(allChapters.map((c) => ({ title: c.title, chapterIndex: c.chapterIndex })));
+        // Get chapter titles only (lightweight — skips full content)
+        const titles = await getChapterTitlesByBook(id);
+        titles.sort((a, b) => a.chapterIndex - b.chapterIndex);
+        setChapterMeta(titles);
 
         // Load starting chapter
         const startIdx = bookData.currentChapter || 0;
@@ -121,11 +121,8 @@ export default function ReaderPageClient() {
     return () => { cancelled = true; };
   }, [setModelLoading, setModelProgress, setModelLoaded]);
 
-  // Warm up phonemizer/inference when model is ready to reduce first-play pause.
-  useEffect(() => {
-    if (!modelLoaded) return;
-    void warmup();
-  }, [modelLoaded, warmup]);
+  // Warmup deferred to first play — avoids blocking page load with heavy
+  // ONNX session init + phonemizer worker when user may just want to read.
 
   // Stop TTS when leaving the reader page
   useEffect(() => {

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Search } from 'lucide-react';
 import { useLibraryStore } from '@/lib/stores/library-store';
+import { prefetchOnnxRuntime } from '@/lib/utils/prefetch-onnx';
 import { useEpubUpload } from '@/components/upload-modal';
 import { HomeHeader, BookCard, GenreChips } from '@/components/home';
 import {
@@ -33,6 +34,9 @@ export default function HomePage() {
   const searchTimer = useRef(null);
 
   useEffect(() => { loadBooks(); }, [loadBooks]);
+
+  // Prefetch ONNX runtime while user browses home — cached before reader page loads
+  useEffect(() => { prefetchOnnxRuntime(); }, []);
 
   // Debounced search
   useEffect(() => {
