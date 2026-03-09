@@ -60,6 +60,11 @@ export default function ReaderPageClient() {
     load();
   }, [id]);
 
+  // Stop TTS when leaving the reader page
+  useEffect(() => {
+    return () => stopTts();
+  }, [stopTts]);
+
   // Load next chapter for infinite scroll
   const loadNextChapter = useCallback(async () => {
     if (!book || loadedChapters.length === 0) return;
