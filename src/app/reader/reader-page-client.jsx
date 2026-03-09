@@ -101,7 +101,11 @@ export default function ReaderPageClient() {
 
     const nextChapter = await getChapter(book.id, nextIdx);
     if (nextChapter) {
-      setLoadedChapters((prev) => [...prev, nextChapter]);
+      setLoadedChapters((prev) => {
+        // Avoid duplicate chapters
+        if (prev.some((c) => c.chapterIndex === nextChapter.chapterIndex)) return prev;
+        return [...prev, nextChapter];
+      });
     }
   }, [book, loadedChapters]);
 
