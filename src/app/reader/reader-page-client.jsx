@@ -147,8 +147,11 @@ export default function ReaderPageClient() {
     return () => { cancelled = true; };
   }, [setModelLoading, setModelProgress, setModelLoaded]);
 
-  // Warmup deferred to first play — avoids blocking page load with heavy
-  // ONNX session init + phonemizer worker when user may just want to read.
+  // Pre-warm ONNX session + phonemizer worker once model is ready in IndexedDB.
+  // This runs in background so first-play latency is avoided without blocking page load.
+  useEffect(() => {
+    if (modelLoaded) warmup();
+  }, [modelLoaded, warmup]);
 
   // Stop TTS when leaving the reader page
   useEffect(() => {

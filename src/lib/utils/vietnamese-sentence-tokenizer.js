@@ -5,15 +5,72 @@
  * Rules:
  * 1. Split on . ! ? followed by space or end-of-string
  * 2. Keep ... (ellipsis) as part of sentence, split after
- * 3. Handle dialogue quotes
- * 4. Don't split on numbers with dots (100.000)
- * 5. Merge short fragments (<5 chars) with previous sentence
+ * 3. Don't split on numbers with dots (100.000)
+ * 4. Merge short fragments (<5 chars) with previous sentence
+ * 5. Split long sentences (>MAX_SENTENCE_CHARS) on clause boundaries (, ; — :)
+ *    so each item in the sentences array is short enough for fast TTS synthesis.
  */
+
+/** Sentences longer than this get split further on clause boundaries */
+const MAX_SENTENCE_CHARS = 50;
+
+/**
+ * Split a single long sentence on clause boundaries (, ; — :).
+ * Keeps splitting until all parts are within MAX_SENTENCE_CHARS,
+ * falling back to word boundaries if no punctuation is found.
+ * @param {string} sentence
+ * @returns {string[]}
+ */
+function splitLongSentence(sentence) {
+  if (sentence.length <= MAX_SENTENCE_CHARS) return [sentence];
+
+  // Split on clause-level punctuation
+  const clauseParts = sentence.split(/(?<=[,;—:])\s+/);
+  const result = [];
+  let buffer = '';
+
+  for (const part of clauseParts) {
+    if (!buffer) {
+      buffer = part;
+      continue;
+    }
+    if ((buffer + ' ' + part).length <= MAX_SENTENCE_CHARS) {
+      buffer += ' ' + part;
+    } else {
+      result.push(buffer);
+      buffer = part;
+    }
+  }
+  if (buffer) result.push(buffer);
+
+  // If clause split didn't help (no punctuation), split by word boundary
+  const final = [];
+  for (const chunk of result) {
+    if (chunk.length <= MAX_SENTENCE_CHARS) {
+      final.push(chunk);
+      continue;
+    }
+    const words = chunk.split(' ');
+    let wordBuffer = '';
+    for (const word of words) {
+      if (!wordBuffer) { wordBuffer = word; continue; }
+      if ((wordBuffer + ' ' + word).length <= MAX_SENTENCE_CHARS) {
+        wordBuffer += ' ' + word;
+      } else {
+        final.push(wordBuffer);
+        wordBuffer = word;
+      }
+    }
+    if (wordBuffer) final.push(wordBuffer);
+  }
+
+  return final.filter(Boolean);
+}
 
 /**
  * Tokenize a text string into an array of sentences.
  * @param {string} text - Input paragraph text
- * @returns {string[]} Array of sentences
+ * @returns {string[]} Array of sentences (each ≤ MAX_SENTENCE_CHARS where possible)
  */
 export function tokenize(text) {
   if (!text || typeof text !== 'string') return [];
@@ -31,7 +88,7 @@ export function tokenize(text) {
 
   if (raw.length === 0) return [trimmed];
 
-  // Merge short fragments (<5 chars) with previous sentence
+  // Merge short fragments (<5 chars) with previous, then split long sentences
   const merged = [];
   for (const sentence of raw) {
     const clean = sentence.trim();
@@ -44,5 +101,15 @@ export function tokenize(text) {
     }
   }
 
-  return merged.length > 0 ? merged : [trimmed];
+  if (merged.length === 0) return [trimmed];
+
+  // Split any sentence exceeding the char limit into clause-level chunks
+  const result = [];
+  for (const sentence of merged) {
+    for (const chunk of splitLongSentence(sentence)) {
+      result.push(chunk);
+    }
+  }
+
+  return result;
 }

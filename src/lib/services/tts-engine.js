@@ -1,6 +1,9 @@
 /**
  * TTS engine facade — orchestrates model loading, phonemization, inference, and playback.
  * Provides a high-level API for the useTts hook.
+ *
+ * Sentence length is controlled upstream by the tokenizer (vietnamese-sentence-tokenizer.js).
+ * Each sentence passed here is expected to be short enough for a single inference call.
  */
 
 import { loadModel, disposeModel } from './tts-model-loader';
@@ -28,7 +31,7 @@ export async function initEngine(onProgress) {
 
 /**
  * Synthesize a single sentence: phonemize → infer → create AudioBuffer.
- * @param {string} text - Text to synthesize
+ * @param {string} text - Text to synthesize (should be short, ≤50 chars from tokenizer)
  * @param {number} speed - Speed multiplier (0.5-2.0)
  * @returns {Promise<AudioBuffer>} Ready-to-play audio buffer
  */

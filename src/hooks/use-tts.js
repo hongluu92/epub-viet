@@ -14,9 +14,9 @@ import {
 } from '@/lib/services/tts-engine';
 
 const PREFETCH_AHEAD = 1;
-const STARTUP_BUFFER_COUNT = 2;
-const STARTUP_BUFFER_MAX_COUNT = 6;
-const STARTUP_BUFFER_TARGET_MS = 6000;
+const STARTUP_BUFFER_COUNT = 1;        // play after first sentence is ready
+const STARTUP_BUFFER_MAX_COUNT = 3;    // cap buffering to avoid long prepare wait
+const STARTUP_BUFFER_TARGET_MS = 2000; // 3s is enough headroom before stall risk
 const estimateSentenceMs = (text, speed) => {
   const normalized = (text || '').trim();
   const chars = normalized.length;

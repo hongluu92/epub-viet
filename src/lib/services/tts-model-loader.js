@@ -116,8 +116,12 @@ export async function loadModel(onProgress) {
   if (onnxSession) return onnxSession;
 
   const ort = await import('onnxruntime-web');
+  // Multi-threading requires crossOriginIsolated (COOP/COEP headers).
+  // Without it, ONNX warns and falls back to 1 thread anyway — set explicitly to suppress noise.
+  const canMultiThread =
+    typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated;
   const threadCount =
-    typeof navigator !== 'undefined' && navigator.hardwareConcurrency
+    canMultiThread && typeof navigator !== 'undefined' && navigator.hardwareConcurrency
       ? Math.min(4, Math.max(1, navigator.hardwareConcurrency))
       : 1;
   ort.env.wasm.numThreads = threadCount;
