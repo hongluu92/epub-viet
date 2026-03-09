@@ -20,7 +20,11 @@ export default function HomePage() {
   // Timsach browse state
   const [browseBooks, setBrowseBooks] = useState([]);
   const [browseLoading, setBrowseLoading] = useState(false);
+  const [browsePage, setBrowsePage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [downloadingId, setDownloadingId] = useState(null);
+  const sentinelRef = useRef(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -47,17 +51,61 @@ export default function HomePage() {
     return () => clearTimeout(searchTimer.current);
   }, [searchQuery]);
 
-  // Fetch timsach books when genre changes
+  // Reset and fetch page 1 when genre changes
   useEffect(() => {
     const slug = GENRE_SLUG_MAP[activeGenre];
     if (!slug) return;
 
+    setBrowseBooks([]);
+    setBrowsePage(1);
+    setHasMore(true);
     setBrowseLoading(true);
-    fetchBooksByGenre(slug)
-      .then(setBrowseBooks)
+    fetchBooksByGenre(slug, 1)
+      .then((books) => {
+        setBrowseBooks(books);
+        if (books.length === 0) setHasMore(false);
+      })
       .catch(() => setBrowseBooks([]))
       .finally(() => setBrowseLoading(false));
   }, [activeGenre]);
+
+  // Load next page
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    const slug = GENRE_SLUG_MAP[activeGenre];
+    if (!slug) return;
+
+    const nextPage = browsePage + 1;
+    setLoadingMore(true);
+    try {
+      const newBooks = await fetchBooksByGenre(slug, nextPage);
+      if (newBooks.length === 0) {
+        setHasMore(false);
+      } else {
+        setBrowseBooks((prev) => {
+          const ids = new Set(prev.map((b) => b.id));
+          return [...prev, ...newBooks.filter((b) => !ids.has(b.id))];
+        });
+        setBrowsePage(nextPage);
+      }
+    } catch {
+      setHasMore(false);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, activeGenre, browsePage]);
+
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) loadMore(); },
+      { rootMargin: '200px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loadMore]);
 
   // Download and import a timsach book
   const handleDownload = useCallback(async (book) => {
@@ -175,19 +223,31 @@ export default function HomePage() {
                 Không tìm thấy sách
               </p>
             ) : (
-              <div
-                className="flex gap-3 px-4 pb-2 overflow-x-auto flex-wrap"
-                style={{ scrollbarWidth: 'none' }}
-              >
-                {browseBooks.map((book) => (
-                  <BookCard
-                    key={book.id}
-                    book={book}
-                    onDownload={handleDownload}
-                    isDownloading={downloadingId === book.id}
-                  />
-                ))}
-              </div>
+              <>
+                <div
+                  className="flex gap-3 px-4 pb-2 overflow-x-auto flex-wrap"
+                  style={{ scrollbarWidth: 'none' }}
+                >
+                  {browseBooks.map((book) => (
+                    <BookCard
+                      key={book.id}
+                      book={book}
+                      onDownload={handleDownload}
+                      isDownloading={downloadingId === book.id}
+                    />
+                  ))}
+                </div>
+                {/* Infinite scroll sentinel */}
+                {hasMore && (
+                  <div ref={sentinelRef} className="px-4 py-4 text-center">
+                    {loadingMore && (
+                      <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                        Đang tải thêm...
+                      </p>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
