@@ -23,6 +23,12 @@ export const metadata = {
   description: 'Vietnamese web novel reader with TTS',
 };
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+};
+
 export default function RootLayout({ children }) {
   return (
     <html lang="vi" className={`${lora.variable} ${inter.variable}`}>
