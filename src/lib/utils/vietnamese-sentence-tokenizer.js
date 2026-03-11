@@ -12,7 +12,7 @@
  */
 
 /** Sentences longer than this get split further on clause boundaries */
-const MAX_SENTENCE_CHARS = 50;
+const MAX_SENTENCE_CHARS = 80;
 
 /**
  * Split a single long sentence on clause boundaries (, ; — :).
