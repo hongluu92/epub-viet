@@ -90,6 +90,8 @@ export default function ReaderContent({
         next.length < prev.length;
       if (isReplacement) {
         restoreDoneRef.current = false;
+        // Immediately reset scroll to top to avoid race with scroll events
+        if (containerRef.current) containerRef.current.scrollTop = 0;
       }
       prevChaptersRef.current = loadedChapters;
     }
