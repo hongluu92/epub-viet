@@ -429,7 +429,7 @@ export default function ReaderPageClient() {
         onToggleSettings={() => setShowSettings(!showSettings)}
       />
 
-      <ReadingProgressBar progress={scrollProgress} />
+      <ReadingProgressBar progress={getOverallReadingProgress(currentChapterIndex, scrollProgress, book.chapterCount)} />
 
       {showSettings && <SettingsDropdown onClose={() => setShowSettings(false)} />}
 
