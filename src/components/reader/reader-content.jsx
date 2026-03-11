@@ -36,35 +36,36 @@ export default function ReaderContent({
     return () => observer.disconnect();
   }, [hasMore, onLoadNext]);
 
-  // Track visible chapter: find chapter element closest to top of scroll container
+  // Track visible chapter with rAF throttle to avoid layout thrashing on every scroll pixel
   useEffect(() => {
     const container = containerRef.current;
     if (!container || loadedChapters.length === 0) return;
 
+    let rafId = 0;
     function updateVisibleChapter() {
-      const chapterEls = container.querySelectorAll('[data-chapter-index]');
-      const containerTop = container.getBoundingClientRect().top;
-      let best = null;
+      if (rafId) return; // already scheduled
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        const chapterEls = container.querySelectorAll('[data-chapter-index]');
+        const containerTop = container.getBoundingClientRect().top;
 
-      for (const el of chapterEls) {
-        const rect = el.getBoundingClientRect();
-        const relativeTop = rect.top - containerTop;
-        // Chapter whose top is closest to (but not far below) the container top
-        if (rect.bottom - containerTop > 0) {
-          best = el;
-          break;
+        for (const el of chapterEls) {
+          const rect = el.getBoundingClientRect();
+          if (rect.bottom - containerTop > 0) {
+            const idx = parseInt(el.dataset.chapterIndex, 10);
+            if (!isNaN(idx)) onVisibleChapterChange?.(idx);
+            break;
+          }
         }
-      }
-
-      if (best) {
-        const idx = parseInt(best.dataset.chapterIndex, 10);
-        if (!isNaN(idx)) onVisibleChapterChange?.(idx);
-      }
+      });
     }
 
     container.addEventListener('scroll', updateVisibleChapter, { passive: true });
     updateVisibleChapter(); // initial
-    return () => container.removeEventListener('scroll', updateVisibleChapter);
+    return () => {
+      container.removeEventListener('scroll', updateVisibleChapter);
+      cancelAnimationFrame(rafId);
+    };
   }, [loadedChapters, onVisibleChapterChange]);
 
   // Track scroll progress

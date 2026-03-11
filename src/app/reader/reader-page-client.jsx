@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef, startTransition } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo, startTransition } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { getBook, getChapter, getChapterTitlesByBook, addBook } from '@/lib/services/indexeddb-service';
 import { useLibraryStore } from '@/lib/stores/library-store';
@@ -207,10 +207,14 @@ export default function ReaderPageClient() {
     };
   }, [disposeTts, persistReadingPosition]);
 
-  // Load next chapter for infinite scroll
+  // Load next chapter for infinite scroll — use ref to avoid re-creating on every append
+  const loadedChaptersRef = useRef(loadedChapters);
+  useEffect(() => { loadedChaptersRef.current = loadedChapters; }, [loadedChapters]);
+
   const loadNextChapter = useCallback(async () => {
-    if (!book || loadedChapters.length === 0) return;
-    const lastLoaded = loadedChapters[loadedChapters.length - 1];
+    const chapters = loadedChaptersRef.current;
+    if (!book || chapters.length === 0) return;
+    const lastLoaded = chapters[chapters.length - 1];
     const nextIdx = lastLoaded.chapterIndex + 1;
 
     if (nextIdx >= book.chapterCount) return;
@@ -218,12 +222,11 @@ export default function ReaderPageClient() {
     const nextChapter = await getChapter(book.id, nextIdx);
     if (nextChapter) {
       setLoadedChapters((prev) => {
-        // Avoid duplicate chapters
         if (prev.some((c) => c.chapterIndex === nextChapter.chapterIndex)) return prev;
         return [...prev, nextChapter];
       });
     }
-  }, [book, loadedChapters]);
+  }, [book]);
 
   // Jump to chapter — stop TTS and clear state first
   const handleChapterSelect = useCallback(async (index) => {
@@ -372,25 +375,9 @@ export default function ReaderPageClient() {
     }, []),
   });
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
-        <p style={{ color: 'var(--text-muted)' }}>Loading...</p>
-      </div>
-    );
-  }
-
-  if (!book) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
-        <p style={{ color: 'var(--text-muted)' }}>Book not found</p>
-      </div>
-    );
-  }
-
-  // Flatten sentences and build coordinate map for TTS highlighting
+  // Flatten sentences and build coordinate map for TTS highlighting (memoized, before early returns)
   const currentChapter = loadedChapters.find((c) => c.chapterIndex === currentChapterIndex);
-  const { flatSentences, sentenceMap } = (() => {
+  const { flatSentences, sentenceMap } = useMemo(() => {
     if (!currentChapter?.sentences) {
       const paragraphs = currentChapter?.paragraphs || [];
       return {
@@ -407,7 +394,23 @@ export default function ReaderPageClient() {
       });
     });
     return { flatSentences: flat, sentenceMap: map };
-  })();
+  }, [currentChapter]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
+        <p style={{ color: 'var(--text-muted)' }}>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!book) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
+        <p style={{ color: 'var(--text-muted)' }}>Book not found</p>
+      </div>
+    );
+  }
 
   const hasMore =
     loadedChapters.length > 0 &&

@@ -1,8 +1,9 @@
 'use client';
 
+import { memo } from 'react';
 import SentenceSpan from './sentence-span';
 
-export default function ChapterBlock({ chapter, bookId, onLongPressSentence }) {
+function ChapterBlock({ chapter, bookId, onLongPressSentence }) {
   return (
     <div className="mb-8">
       {/* Chapter title */}
@@ -32,3 +33,5 @@ export default function ChapterBlock({ chapter, bookId, onLongPressSentence }) {
     </div>
   );
 }
+
+export default memo(ChapterBlock);

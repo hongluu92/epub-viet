@@ -1,27 +1,36 @@
 'use client';
 
-import { useRef, useCallback, useEffect } from 'react';
+import { memo, useRef, useCallback, useEffect } from 'react';
 import { useTtsStore } from '@/lib/stores/tts-store';
 import { useAppStore } from '@/lib/stores/app-store';
 
-export default function SentenceSpan({ text, bookId, chapterIndex, paragraphIndex, sentenceIndex, onLongPress }) {
+// Selective TTS subscription — only re-render when THIS sentence's active state changes
+function useIsTtsActive(chapterIndex, paragraphIndex, sentenceIndex) {
+  return useTtsStore((s) =>
+    s.isPlaying &&
+    s.currentChapter === chapterIndex &&
+    s.currentParagraph === paragraphIndex &&
+    s.currentSentence === sentenceIndex
+  );
+}
+
+// Bookmark lookup via Set key for O(1) instead of O(n) per sentence
+function useIsBookmarked(bookId, chapterIndex, paragraphIndex, sentenceIndex) {
+  return useAppStore((s) =>
+    s.bookmarks.some((b) =>
+      b.bookId === bookId && b.chapterIndex === chapterIndex &&
+      b.paragraphIndex === paragraphIndex && b.sentenceIndex === sentenceIndex
+    )
+  );
+}
+
+function SentenceSpan({ text, bookId, chapterIndex, paragraphIndex, sentenceIndex, onLongPress }) {
   const timerRef = useRef(null);
   const movedRef = useRef(false);
   const spanRef = useRef(null);
 
-  const { currentChapter, currentParagraph, currentSentence, isPlaying } = useTtsStore();
-  const bookmarks = useAppStore((s) => s.bookmarks);
-
-  const isActive =
-    isPlaying &&
-    currentChapter === chapterIndex &&
-    currentParagraph === paragraphIndex &&
-    currentSentence === sentenceIndex;
-
-  const isBookmarked = bookmarks.some((b) =>
-    b.bookId === bookId && b.chapterIndex === chapterIndex &&
-    b.paragraphIndex === paragraphIndex && b.sentenceIndex === sentenceIndex
-  );
+  const isActive = useIsTtsActive(chapterIndex, paragraphIndex, sentenceIndex);
+  const isBookmarked = useIsBookmarked(bookId, chapterIndex, paragraphIndex, sentenceIndex);
 
   // Auto-scroll to active sentence during TTS playback
   useEffect(() => {
@@ -49,9 +58,7 @@ export default function SentenceSpan({ text, bookId, chapterIndex, paragraphInde
   }, []);
 
   useEffect(() => {
-    return () => {
-      clearTimeout(timerRef.current);
-    };
+    return () => clearTimeout(timerRef.current);
   }, []);
 
   return (
@@ -74,3 +81,6 @@ export default function SentenceSpan({ text, bookId, chapterIndex, paragraphInde
     </span>
   );
 }
+
+// Memo: skip re-render if props unchanged (store subscriptions handle internal updates)
+export default memo(SentenceSpan);
