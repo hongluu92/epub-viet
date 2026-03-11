@@ -6,7 +6,8 @@ import { useAppStore } from '@/lib/stores/app-store';
 import {
   initEngine,
   synthesizeSentence,
-  playSentence,
+  scheduleSentence,
+  getPlaybackTime,
   pause as pauseEngine,
   resume as resumeEngine,
   stop as stopEngine,
@@ -163,6 +164,10 @@ export function useTts() {
     // Prime prefetch window before entering playback loop.
     prefetch(sentences, startIdx, playSpeedRef.current, runId);
 
+    // Track scheduled end time for gapless audio scheduling.
+    // Web Audio API schedules at hardware level — eliminates JS event loop gaps.
+    let nextStartTime = getPlaybackTime();
+
     for (let i = startIdx; i < sentences.length; i++) {
       if (abortRef.current || runId !== playRunIdRef.current) break;
 
@@ -172,6 +177,7 @@ export function useTts() {
         prefetchCache.current.clear();
         prefetchInFlight.current.clear();
         playSpeedRef.current = speed;
+        nextStartTime = getPlaybackTime();
       }
 
       // Use coordinate map to set correct paragraph/sentence for highlighting
@@ -191,12 +197,19 @@ export function useTts() {
       if (!buffer) continue;
       if (abortRef.current || runId !== playRunIdRef.current) break;
 
+      // Schedule at precise time — if prefetch was fast enough, nextStartTime
+      // is in the future and audio starts gaplessly. Otherwise falls back to "now".
+      const now = getPlaybackTime();
+      const startAt = Math.max(nextStartTime, now);
+      const { endTime, promise } = scheduleSentence(buffer, startAt);
+      nextStartTime = endTime;
+
       // Prefetch next sentences NOW — while current sentence plays, next ones synthesize
       prefetch(sentences, i + 1, speed, runId);
 
-      // Play current sentence and wait for it to end
+      // Wait for this sentence to end (for UI highlight sync)
       try {
-        await playSentence(buffer);
+        await promise;
       } catch (err) {
         if (abortRef.current || runId !== playRunIdRef.current) break;
         console.error(`Playback failed for sentence ${i}:`, err);

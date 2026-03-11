@@ -12,6 +12,7 @@ import { inferAudio } from './tts-inference';
 import {
   createAudioBuffer,
   playBuffer,
+  scheduleBuffer,
   pause as pauseAudio,
   resume as resumeAudio,
   stop as stopAudio,
@@ -50,6 +51,21 @@ export async function synthesizeSentence(text, speed = 1.0) {
  */
 export async function playSentence(buffer) {
   return playBuffer(buffer);
+}
+
+/**
+ * Schedule an AudioBuffer at a precise time for gapless playback.
+ * @param {AudioBuffer} buffer
+ * @param {number} startAt - AudioContext.currentTime value
+ * @returns {{ endTime: number, promise: Promise<void> }}
+ */
+export function scheduleSentence(buffer, startAt) {
+  return scheduleBuffer(buffer, startAt);
+}
+
+/** Get current AudioContext time for scheduling. */
+export function getPlaybackTime() {
+  return getAudioContext().currentTime;
 }
 
 export const pause = pauseAudio;

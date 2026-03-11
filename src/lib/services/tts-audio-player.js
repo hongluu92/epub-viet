@@ -8,6 +8,7 @@ import { SAMPLE_RATE } from '@/lib/utils/phoneme-id-map';
 let audioContext = null;
 let currentSource = null;
 let gainNode = null;
+let activeSources = [];
 
 /** Get or create AudioContext (lazy, must be called after user gesture) */
 export function getAudioContext() {
@@ -73,6 +74,42 @@ export function playBuffer(audioBuffer, volume = 1.0) {
   });
 }
 
+/**
+ * Schedule an AudioBuffer at a precise AudioContext time for gapless playback.
+ * Reuses the GainNode to avoid reconnection overhead between sentences.
+ * @param {AudioBuffer} audioBuffer
+ * @param {number} startAt - AudioContext.currentTime value to start at
+ * @param {number} volume - 0.0 to 1.0
+ * @returns {{ endTime: number, promise: Promise<void> }}
+ */
+export function scheduleBuffer(audioBuffer, startAt, volume = 1.0) {
+  const ctx = getAudioContext();
+  const source = ctx.createBufferSource();
+  source.buffer = audioBuffer;
+
+  // Reuse gain node across scheduled sources (no disconnect/reconnect overhead)
+  if (!gainNode) {
+    gainNode = ctx.createGain();
+    gainNode.connect(ctx.destination);
+  }
+  gainNode.gain.value = volume;
+  source.connect(gainNode);
+
+  const endTime = startAt + audioBuffer.duration;
+
+  const promise = new Promise((resolve) => {
+    source.onended = () => {
+      activeSources = activeSources.filter((s) => s !== source);
+      resolve();
+    };
+  });
+
+  activeSources.push(source);
+  source.start(startAt);
+
+  return { endTime, promise };
+}
+
 /** Pause playback by suspending AudioContext */
 export async function pause() {
   const ctx = audioContext;
@@ -89,14 +126,14 @@ export async function resume() {
   }
 }
 
-/** Stop current playback immediately */
+/** Stop current playback immediately (all scheduled + legacy sources) */
 export function stop() {
+  for (const src of activeSources) {
+    try { src.stop(); } catch { /* already stopped */ }
+  }
+  activeSources = [];
   if (currentSource) {
-    try {
-      currentSource.stop();
-    } catch {
-      // Already stopped
-    }
+    try { currentSource.stop(); } catch { /* already stopped */ }
     currentSource = null;
   }
 }
@@ -109,4 +146,5 @@ export async function disposeAudio() {
     audioContext = null;
   }
   gainNode = null;
+  activeSources = [];
 }
