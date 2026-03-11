@@ -23,7 +23,7 @@ export default function AppShell({ children }) {
 
       {/* Main content area */}
       <main
-        className="flex-1 md:ml-[200px] pb-[calc(64px+env(safe-area-inset-bottom))] md:pb-0"
+        className="flex-1 min-w-0 md:ml-[200px] pb-[calc(64px+env(safe-area-inset-bottom))] md:pb-0"
         style={{ backgroundColor: 'var(--bg)', color: 'var(--text)' }}
       >
         {children}
