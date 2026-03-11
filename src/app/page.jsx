@@ -9,7 +9,7 @@ import { useEpubUpload } from '@/components/upload-modal';
 import { HomeHeader, BookCard, GenreChips } from '@/components/home';
 import { BookShelfSkeleton } from '@/components/loading-skeleton';
 import { useAuth } from '@/hooks/use-auth';
-import { syncBookMetadata, deleteBookFromCloud } from '@/lib/services/firebase-sync-service';
+import { syncBookMetadata } from '@/lib/services/firebase-sync-service';
 import {
   GENRE_SLUG_MAP, fetchBooksByGenre, downloadAndImportEpub, searchBooks,
 } from '@/lib/services/timsach-service';
@@ -17,7 +17,7 @@ import {
 const firstGenre = Object.keys(GENRE_SLUG_MAP)[0];
 
 export default function HomePage() {
-  const { books, isLoading, loadBooks, removeBook } = useLibraryStore();
+  const { books, isLoading, loadBooks } = useLibraryStore();
   const addBookToStore = useLibraryStore((s) => s.addBook);
   const { triggerUpload, UploadProgress } = useEpubUpload();
   const { user } = useAuth();
@@ -160,27 +160,28 @@ export default function HomePage() {
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
       <HomeHeader onImport={() => triggerUpload()} />
 
-      {/* My Library section - always shown first */}
+      {/* My Library section - horizontal scroll preview */}
       <section className="mb-6">
         <div className="flex items-center justify-between px-4 mb-3">
           <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>
             Tủ sách của tôi
           </h2>
+          {(localBooks.length > 0 || cloudOnlyBooks.length > 0) && (
+            <Link href="/library" className="text-xs font-medium" style={{ color: 'var(--accent)' }}>
+              Xem thêm
+            </Link>
+          )}
         </div>
         {isLoading ? (
           <BookShelfSkeleton count={3} />
         ) : (localBooks.length > 0 || cloudOnlyBooks.length > 0) ? (
           <div
-            className="flex gap-3 px-4 pb-2 overflow-x-auto"
-            style={{ scrollbarWidth: 'none' }}
+            className="flex gap-3 px-4 pb-2 overflow-x-auto flex-nowrap"
+            style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
           >
             {localBooks.map((book) => (
-              <BookCard key={book.id} book={book} onDelete={(b) => {
-                removeBook(b.id);
-                if (user?.uid) deleteBookFromCloud(user.uid, b.id);
-              }} />
+              <BookCard key={book.id} book={book} />
             ))}
-            {/* Cloud-only books: synced from another device, epub not downloaded yet */}
             {cloudOnlyBooks.map((book) => (
               <BookCard
                 key={book.id}
