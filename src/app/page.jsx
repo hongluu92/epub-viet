@@ -185,7 +185,7 @@ export default function HomePage() {
             style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
           >
             {localBooks.map((book) => (
-              <BookCard key={book.id} book={book} onContextDelete={(b) => {
+              <BookCard key={book.id} book={book} onDelete={(b) => {
                 removeBook(b.id);
                 if (user?.uid) deleteBookFromCloud(user.uid, b.id);
               }} />
