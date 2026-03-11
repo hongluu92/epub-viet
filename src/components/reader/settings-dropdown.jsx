@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useAppStore } from '@/lib/stores/app-store';
 import { FONT_FAMILIES, THEMES } from '@/lib/utils/theme-tokens';
 
-const THEME_LABELS = { light: 'S\u00e1ng', dark: 'T\u1ed1i', sepia: 'Sepia' };
+const THEME_LABELS = { light: 'Sáng', dark: 'Tối', sepia: 'Sepia' };
 const THEME_COLORS = {
   light: { bg: '#F5F0E8', text: '#1A1A1A' },
   dark: { bg: '#1A1814', text: '#E8E0D0' },
@@ -53,7 +53,7 @@ export default function SettingsDropdown({ onClose }) {
     >
       {/* Font Size */}
       <div className={rowClass}>
-        <span style={labelStyle}>C\u1ee1 ch\u1eef</span>
+        <span style={labelStyle}>Cỡ chữ</span>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setFontSize(fontSize - 1)}
@@ -85,7 +85,7 @@ export default function SettingsDropdown({ onClose }) {
 
       {/* Line Height */}
       <div className={rowClass}>
-        <span style={labelStyle}>D\u00e3n d\u00f2ng</span>
+        <span style={labelStyle}>Dãn dòng</span>
         <input
           type="range" min="1.4" max="2.4" step="0.1"
           value={lineHeight}
@@ -97,7 +97,7 @@ export default function SettingsDropdown({ onClose }) {
 
       {/* Margin */}
       <div className={rowClass}>
-        <span style={labelStyle}>L\u1ec1</span>
+        <span style={labelStyle}>Lề</span>
         <input
           type="range" min="8" max="48" step="4"
           value={readerMargin}
@@ -111,7 +111,7 @@ export default function SettingsDropdown({ onClose }) {
 
       {/* Theme */}
       <div className="py-2">
-        <span style={labelStyle}>Giao di\u1ec7n</span>
+        <span style={labelStyle}>Giao diện</span>
         <div className="flex gap-2 mt-2">
           {THEMES.map((t) => (
             <button
@@ -134,7 +134,7 @@ export default function SettingsDropdown({ onClose }) {
 
       {/* TTS Speed */}
       <div className={rowClass}>
-        <span style={labelStyle}>T\u1ed1c \u0111\u1ed9</span>
+        <span style={labelStyle}>Tốc độ</span>
         <div className="flex items-center gap-2">
           <input
             type="range" min="0.5" max="2.0" step="0.1"

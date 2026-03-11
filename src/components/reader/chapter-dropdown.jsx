@@ -96,7 +96,7 @@ export default function ChapterDropdown({ chapters, currentIndex, onSelect, onCl
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Tim chuong..."
+            placeholder="Tìm chương..."
             className="w-full px-3 py-2 text-sm rounded-lg outline-none"
             style={{
               backgroundColor: 'var(--bg)',
@@ -111,7 +111,7 @@ export default function ChapterDropdown({ chapters, currentIndex, onSelect, onCl
       <div className="overflow-y-auto">
         {filtered.length === 0 ? (
           <div className="px-4 py-6 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-            Khong tim thay chuong nao
+            Không tìm thấy chương nào
           </div>
         ) : (
           filtered.map((ch, idx) => {
@@ -142,7 +142,7 @@ export default function ChapterDropdown({ chapters, currentIndex, onSelect, onCl
                   {ch.chapterIndex + 1}
                 </span>
                 <span className="truncate">
-                  {ch.title || `Chuong ${ch.chapterIndex + 1}`}
+                  {ch.title || `Chương ${ch.chapterIndex + 1}`}
                 </span>
                 {isActive && (
                   <span className="ml-auto flex-shrink-0 text-xs" style={{ color: 'var(--accent)' }}>
