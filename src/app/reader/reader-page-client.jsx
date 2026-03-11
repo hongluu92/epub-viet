@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, startTransition } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { getBook, getChapter, getChapterTitlesByBook, addBook } from '@/lib/services/indexeddb-service';
 import { useLibraryStore } from '@/lib/stores/library-store';
@@ -96,10 +96,13 @@ export default function ReaderPageClient() {
           void addBook(bookData);
         }
 
-        setBook(bookData);
-        setChapterMeta(titles);
-        setCurrentChapterIndex(startChapter);
-        setScrollProgress(startScroll);
+        // Batch non-critical state updates to keep UI responsive
+        startTransition(() => {
+          setBook(bookData);
+          setChapterMeta(titles);
+          setCurrentChapterIndex(startChapter);
+          setScrollProgress(startScroll);
+        });
 
         // Step 2: load starting chapter content
         const firstChapter = await getChapter(id, startChapter);
@@ -157,11 +160,13 @@ export default function ReaderPageClient() {
   const isPlaying = useTtsStore((s) => s.isPlaying);
   const isPaused = useTtsStore((s) => s.isPaused);
   const currentFlatIndex = useTtsStore((s) => s.currentFlatIndex);
+  // Defer TTS model check so it doesn't compete with book-loading IndexedDB ops
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    const checkModel = async () => {
+      if (cancelled) return;
       if (await isModelCached()) {
-        setModelLoaded(true);
+        if (!cancelled) setModelLoaded(true);
         return;
       }
       setModelLoading(true);
@@ -173,8 +178,14 @@ export default function ReaderPageClient() {
       } finally {
         if (!cancelled) setModelLoading(false);
       }
-    })();
-    return () => { cancelled = true; };
+    };
+    const id = typeof requestIdleCallback === 'function'
+      ? requestIdleCallback(() => checkModel())
+      : setTimeout(() => checkModel(), 100);
+    return () => {
+      cancelled = true;
+      typeof requestIdleCallback === 'function' ? cancelIdleCallback(id) : clearTimeout(id);
+    };
   }, [setModelLoading, setModelProgress, setModelLoaded]);
 
   // Pre-warm ONNX session + phonemizer worker once model is ready in IndexedDB.

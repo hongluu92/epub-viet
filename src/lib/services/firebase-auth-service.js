@@ -1,15 +1,14 @@
 // Firebase authentication service: Google sign-in, sign-out, account deletion
-import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged as fbOnAuthStateChanged, deleteUser } from 'firebase/auth';
-import { collection, getDocs, deleteDoc } from 'firebase/firestore';
-import { auth, db } from './firebase-config';
-
-const googleProvider = new GoogleAuthProvider();
+// All Firebase SDK imports are lazy to avoid blocking module evaluation
+import { getAuthInstance, getDbInstance } from './firebase-config';
 
 /** Sign in with Google popup */
 export async function signInWithGoogle() {
+  const auth = await getAuthInstance();
   if (!auth) throw new Error('Firebase not configured');
+  const { GoogleAuthProvider, signInWithPopup } = await import('firebase/auth');
   try {
-    const result = await signInWithPopup(auth, googleProvider);
+    const result = await signInWithPopup(auth, new GoogleAuthProvider());
     return result.user;
   } catch (err) {
     console.error('[auth] signInWithGoogle failed:', err);
@@ -19,7 +18,9 @@ export async function signInWithGoogle() {
 
 /** Sign out current user */
 export async function signOutUser() {
+  const auth = await getAuthInstance();
   if (!auth) return;
+  const { signOut } = await import('firebase/auth');
   try {
     await signOut(auth);
   } catch (err) {
@@ -28,19 +29,25 @@ export async function signOutUser() {
   }
 }
 
-/** Subscribe to auth state changes, returns unsubscribe fn */
-export function onAuthStateChanged(callback) {
+/** Subscribe to auth state changes, returns unsubscribe fn.
+ *  Now async — caller must await before using the unsubscribe handle. */
+export async function onAuthStateChanged(callback) {
+  const auth = await getAuthInstance();
   if (!auth) { callback(null); return () => {}; }
+  const { onAuthStateChanged: fbOnAuthStateChanged } = await import('firebase/auth');
   return fbOnAuthStateChanged(auth, callback);
 }
 
 /** Delete all user Firestore data then delete Firebase auth account */
 export async function deleteUserAccount() {
+  const auth = await getAuthInstance();
   if (!auth) throw new Error('Firebase not configured');
   const user = auth.currentUser;
   if (!user) throw new Error('No authenticated user');
+  const db = await getDbInstance();
+  const { collection, getDocs, deleteDoc } = await import('firebase/firestore');
+  const { deleteUser } = await import('firebase/auth');
   try {
-    // Delete all subcollections: settings, books, bookmarks
     const subColls = ['settings', 'books', 'bookmarks'];
     for (const name of subColls) {
       const snap = await getDocs(collection(db, 'users', user.uid, name));

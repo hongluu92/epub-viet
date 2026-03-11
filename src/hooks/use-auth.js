@@ -12,19 +12,24 @@ export function useAuth() {
   const mergeCloudBooks = useLibraryStore((s) => s.mergeCloudBooks);
 
   useEffect(() => {
-    const unsubAuth = onAuthStateChanged(async (firebaseUser) => {
+    let cancelled = false;
+    let unsubAuth = null;
+
+    // onAuthStateChanged is now async (lazy Firebase init)
+    onAuthStateChanged(async (firebaseUser) => {
+      if (cancelled) return;
       setUser(firebaseUser);
       setIsLoading(false);
 
       if (firebaseUser) {
-        // Fetch cloud library and surface books not yet downloaded locally
         const cloudBooks = await fetchLibrary(firebaseUser.uid);
+        if (cancelled) return;
         if (cloudBooks.length > 0) mergeCloudBooks(cloudBooks);
 
         // Clean up previous listeners before starting new ones
         if (listenersRef.current) listenersRef.current();
-        listenersRef.current = subscribeToChanges(firebaseUser.uid, {
-          // Real-time: merge new cloud books added on another device
+        // subscribeToChanges is now async too
+        listenersRef.current = await subscribeToChanges(firebaseUser.uid, {
           onBooks: (books) => mergeCloudBooks(books),
         });
       } else {
@@ -33,10 +38,14 @@ export function useAuth() {
           listenersRef.current = null;
         }
       }
+    }).then((unsub) => {
+      if (cancelled) { unsub?.(); return; }
+      unsubAuth = unsub;
     });
 
     return () => {
-      unsubAuth();
+      cancelled = true;
+      unsubAuth?.();
       if (listenersRef.current) {
         listenersRef.current();
         listenersRef.current = null;

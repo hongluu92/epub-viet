@@ -1,12 +1,6 @@
 // Firebase Firestore sync service: settings, book progress, bookmarks, real-time listeners
-import {
-  doc, setDoc, getDoc, collection, getDocs,
-  onSnapshot, deleteDoc, serverTimestamp,
-} from 'firebase/firestore';
-import { db } from './firebase-config';
-
-// Skip all sync operations when Firebase is not configured
-const isEnabled = () => db !== null;
+// All Firebase SDK imports are lazy to avoid blocking module evaluation
+import { getDbInstance } from './firebase-config';
 
 // Debounce helper to batch rapid writes
 function debounce(fn, ms) {
@@ -17,13 +11,23 @@ function debounce(fn, ms) {
   };
 }
 
+// Lazy helper: returns { db, fs } where fs contains needed firestore functions
+async function getFirestore() {
+  const db = await getDbInstance();
+  if (!db) return null;
+  const fs = await import('firebase/firestore');
+  return { db, fs };
+}
+
 /** Write user settings to users/{uid}/settings/prefs */
 export const syncSettings = debounce(async (uid, settings) => {
-  if (!isEnabled()) return;
+  const ctx = await getFirestore();
+  if (!ctx) return;
+  const { db, fs } = ctx;
   try {
-    await setDoc(doc(db, 'users', uid, 'settings', 'prefs'), {
+    await fs.setDoc(fs.doc(db, 'users', uid, 'settings', 'prefs'), {
       ...settings,
-      updatedAt: serverTimestamp(),
+      updatedAt: fs.serverTimestamp(),
     }, { merge: true });
   } catch (err) {
     console.error('[sync] syncSettings failed:', err);
@@ -32,11 +36,13 @@ export const syncSettings = debounce(async (uid, settings) => {
 
 /** Write book reading progress to users/{uid}/books/{bookId} */
 export const syncBookProgress = debounce(async (uid, bookId, progress) => {
-  if (!isEnabled()) return;
+  const ctx = await getFirestore();
+  if (!ctx) return;
+  const { db, fs } = ctx;
   try {
-    await setDoc(doc(db, 'users', uid, 'books', bookId), {
+    await fs.setDoc(fs.doc(db, 'users', uid, 'books', bookId), {
       ...progress,
-      updatedAt: serverTimestamp(),
+      updatedAt: fs.serverTimestamp(),
     }, { merge: true });
   } catch (err) {
     console.error('[sync] syncBookProgress failed:', err);
@@ -45,9 +51,11 @@ export const syncBookProgress = debounce(async (uid, bookId, progress) => {
 
 /** Fetch reading progress for a single book from Firestore */
 export async function getBookProgress(uid, bookId) {
-  if (!isEnabled()) return null;
+  const ctx = await getFirestore();
+  if (!ctx) return null;
+  const { db, fs } = ctx;
   try {
-    const snap = await getDoc(doc(db, 'users', uid, 'books', bookId));
+    const snap = await fs.getDoc(fs.doc(db, 'users', uid, 'books', bookId));
     return snap.exists() ? snap.data() : null;
   } catch (err) {
     console.error('[sync] getBookProgress failed:', err);
@@ -57,14 +65,16 @@ export async function getBookProgress(uid, bookId) {
 
 /** Add or remove bookmark in users/{uid}/bookmarks/{key} */
 export async function syncBookmark(uid, bookmark, action) {
-  if (!isEnabled()) return;
+  const ctx = await getFirestore();
+  if (!ctx) return;
+  const { db, fs } = ctx;
   const key = `${bookmark.bookId}:${bookmark.chapterIndex}:${bookmark.paragraphIndex}:${bookmark.sentenceIndex}`;
-  const ref = doc(db, 'users', uid, 'bookmarks', key);
+  const ref = fs.doc(db, 'users', uid, 'bookmarks', key);
   try {
     if (action === 'add') {
-      await setDoc(ref, { ...bookmark, createdAt: serverTimestamp() });
+      await fs.setDoc(ref, { ...bookmark, createdAt: fs.serverTimestamp() });
     } else {
-      await deleteDoc(ref);
+      await fs.deleteDoc(ref);
     }
   } catch (err) {
     console.error('[sync] syncBookmark failed:', err);
@@ -74,25 +84,27 @@ export async function syncBookmark(uid, bookmark, action) {
 /** Subscribe to real-time changes for settings, books, bookmarks
  *  callbacks: { onSettings, onBooks, onBookmarks }
  *  Returns cleanup function that unsubscribes all listeners */
-export function subscribeToChanges(uid, callbacks) {
-  if (!isEnabled()) return () => {};
+export async function subscribeToChanges(uid, callbacks) {
+  const ctx = await getFirestore();
+  if (!ctx) return () => {};
+  const { db, fs } = ctx;
   const unsubs = [];
 
   if (callbacks.onSettings) {
-    unsubs.push(onSnapshot(doc(db, 'users', uid, 'settings', 'prefs'), (snap) => {
+    unsubs.push(fs.onSnapshot(fs.doc(db, 'users', uid, 'settings', 'prefs'), (snap) => {
       if (snap.exists()) callbacks.onSettings(snap.data());
     }));
   }
 
   if (callbacks.onBooks) {
-    unsubs.push(onSnapshot(collection(db, 'users', uid, 'books'), (snap) => {
+    unsubs.push(fs.onSnapshot(fs.collection(db, 'users', uid, 'books'), (snap) => {
       const books = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       callbacks.onBooks(books);
     }));
   }
 
   if (callbacks.onBookmarks) {
-    unsubs.push(onSnapshot(collection(db, 'users', uid, 'bookmarks'), (snap) => {
+    unsubs.push(fs.onSnapshot(fs.collection(db, 'users', uid, 'bookmarks'), (snap) => {
       const bookmarks = snap.docs.map((d) => d.data());
       callbacks.onBookmarks(bookmarks);
     }));
@@ -103,9 +115,11 @@ export function subscribeToChanges(uid, callbacks) {
 
 /** Fetch all books metadata from Firestore for the user */
 export async function fetchLibrary(uid) {
-  if (!isEnabled()) return [];
+  const ctx = await getFirestore();
+  if (!ctx) return [];
+  const { db, fs } = ctx;
   try {
-    const snap = await getDocs(collection(db, 'users', uid, 'books'));
+    const snap = await fs.getDocs(fs.collection(db, 'users', uid, 'books'));
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (err) {
     console.error('[sync] fetchLibrary failed:', err);
@@ -115,16 +129,17 @@ export async function fetchLibrary(uid) {
 
 /** Sync book metadata (title, author, cover, source) to Firestore — no epub content */
 export async function syncBookMetadata(uid, book) {
-  if (!isEnabled()) return;
-  // Only persist fields needed to show the book in the library on another device
+  const ctx = await getFirestore();
+  if (!ctx) return;
+  const { db, fs } = ctx;
   const { id, title, author, coverUrl, source, timsachId, epubUrl, chapterCount, addedAt } = book;
   try {
-    await setDoc(doc(db, 'users', uid, 'books', id), {
+    await fs.setDoc(fs.doc(db, 'users', uid, 'books', id), {
       title, author, coverUrl: coverUrl || null,
       source: source || 'local', timsachId: timsachId || null,
-      epubUrl: epubUrl || null, // enables re-download on other devices without re-scraping
+      epubUrl: epubUrl || null,
       chapterCount: chapterCount || null, addedAt: addedAt || Date.now(),
-      updatedAt: serverTimestamp(),
+      updatedAt: fs.serverTimestamp(),
     }, { merge: true });
   } catch (err) {
     console.error('[sync] syncBookMetadata failed:', err);
@@ -133,9 +148,11 @@ export async function syncBookMetadata(uid, book) {
 
 /** Remove book from Firestore */
 export async function deleteBookFromCloud(uid, bookId) {
-  if (!isEnabled()) return;
+  const ctx = await getFirestore();
+  if (!ctx) return;
+  const { db, fs } = ctx;
   try {
-    await deleteDoc(doc(db, 'users', uid, 'books', bookId));
+    await fs.deleteDoc(fs.doc(db, 'users', uid, 'books', bookId));
   } catch (err) {
     console.error('[sync] deleteBookFromCloud failed:', err);
   }
