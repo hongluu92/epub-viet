@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { X } from 'lucide-react';
 import BookCover from './book-cover';
 
 // Book card for horizontal scroll sections.
@@ -54,10 +53,9 @@ export default function BookCard({ book, onClick, onDelete }) {
               e.stopPropagation();
               if (window.confirm(`Xóa "${book.title}" khỏi thư viện?`)) onDelete(book);
             }}
-            className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center"
-            style={{ backgroundColor: 'rgba(0,0,0,0.55)', color: '#fff' }}
+            className="absolute top-0 right-0 w-5 h-5 flex items-center justify-center text-white/80 text-xs font-light leading-none"
           >
-            <X size={11} />
+            &#x2715;
           </button>
         )}
       </div>
