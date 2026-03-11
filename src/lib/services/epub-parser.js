@@ -80,12 +80,19 @@ export async function parseEpub(file, onProgress = () => {}) {
     0
   );
 
+  // Store lightweight chapter titles in book metadata to avoid cursor iteration later
+  const chapterTitles = chapters.map((ch) => ({
+    title: ch.title,
+    chapterIndex: ch.chapterIndex,
+  }));
+
   const metadata = {
     id: bookId,
     title: opfData.metadata.title,
     author: opfData.metadata.author,
     coverUrl,
     chapterCount: chapters.length,
+    chapterTitles,
     totalCharacters,
     addedAt: Date.now(),
     lastReadAt: Date.now(),

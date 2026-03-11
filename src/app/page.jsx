@@ -48,6 +48,9 @@ export default function HomePage() {
   // Prefetch ONNX runtime while user browses home — cached before reader page loads
   useEffect(() => { prefetchOnnxRuntime(); }, []);
 
+  // Prefetch reader route JS bundle so book opens instantly
+  useEffect(() => { router.prefetch('/reader'); }, [router]);
+
   // Debounced search
   useEffect(() => {
     clearTimeout(searchTimer.current);

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { getBook, getChapter, getChapterTitlesByBook } from '@/lib/services/indexeddb-service';
+import { getBook, getChapter, getChapterTitlesByBook, addBook } from '@/lib/services/indexeddb-service';
 import { useLibraryStore } from '@/lib/stores/library-store';
 import { useAuth } from '@/hooks/use-auth';
 import { syncBookProgress, getBookProgress } from '@/lib/services/firebase-sync-service';
@@ -72,39 +72,36 @@ export default function ReaderPageClient() {
     latestScrollRef.current = scrollProgress;
   }, [scrollProgress]);
 
-  // Load book and first chapter
+  // Load book and first chapter — parallelized with deferred cloud sync
   useEffect(() => {
     if (!id) return;
 
     async function load() {
       try {
+        // Step 1: fetch book metadata (chapter titles are embedded for newer books)
         const bookData = await getBook(id);
         if (!bookData) return;
-        setBook(bookData);
 
-        // Use cloud progress if it's newer than local (cross-device sync)
-        let startChapter = bookData.currentChapter || 0;
-        let startScroll = bookData.scrollProgress || 0;
-        if (user?.uid) {
-          const cloudProgress = await getBookProgress(user.uid, id);
-          if (cloudProgress?.updatedAt) {
-            const cloudTs = cloudProgress.updatedAt?.toMillis?.() || 0;
-            const localTs = bookData.lastReadAt || 0;
-            if (cloudTs > localTs) {
-              startChapter = cloudProgress.currentChapter || 0;
-              startScroll = cloudProgress.scrollProgress || 0;
-            }
-          }
+        // Use LOCAL progress to render immediately (no network wait)
+        const startChapter = bookData.currentChapter || 0;
+        const startScroll = bookData.scrollProgress || 0;
+
+        // Prefer embedded titles; fallback to cursor scan for older books
+        let titles = bookData.chapterTitles;
+        if (!titles || titles.length === 0) {
+          titles = await getChapterTitlesByBook(id);
+          titles.sort((a, b) => a.chapterIndex - b.chapterIndex);
+          // Backfill so future opens are fast
+          bookData.chapterTitles = titles;
+          void addBook(bookData);
         }
+
+        setBook(bookData);
+        setChapterMeta(titles);
         setCurrentChapterIndex(startChapter);
         setScrollProgress(startScroll);
 
-        // Get chapter titles only (lightweight — skips full content)
-        const titles = await getChapterTitlesByBook(id);
-        titles.sort((a, b) => a.chapterIndex - b.chapterIndex);
-        setChapterMeta(titles);
-
-        // Load starting chapter
+        // Step 2: load starting chapter content
         const firstChapter = await getChapter(id, startChapter);
         if (firstChapter) {
           setLoadedChapters([firstChapter]);
@@ -117,7 +114,40 @@ export default function ReaderPageClient() {
     }
 
     load();
-  }, [id, user]);
+  }, [id]);
+
+  // Reconcile cloud progress in background (non-blocking)
+  useEffect(() => {
+    if (!id || !user?.uid || !book) return;
+
+    (async () => {
+      try {
+        const cloudProgress = await getBookProgress(user.uid, id);
+        if (!cloudProgress?.updatedAt) return;
+
+        const cloudTs = cloudProgress.updatedAt?.toMillis?.() || 0;
+        const localTs = book.lastReadAt || 0;
+        if (cloudTs > localTs) {
+          const cloudChapter = cloudProgress.currentChapter || 0;
+          const cloudScroll = cloudProgress.scrollProgress || 0;
+
+          // Only reconcile if the chapter actually differs
+          if (cloudChapter !== (book.currentChapter || 0)) {
+            const chapter = await getChapter(id, cloudChapter);
+            if (chapter) {
+              setLoadedChapters([chapter]);
+              setCurrentChapterIndex(cloudChapter);
+              setScrollProgress(cloudScroll);
+            }
+          } else {
+            setScrollProgress(cloudScroll);
+          }
+        }
+      } catch (err) {
+        console.error('Cloud progress sync failed (non-blocking):', err);
+      }
+    })();
+  }, [id, user, book?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Download TTS model to IndexedDB in background (if not cached)
   const setModelLoading = useTtsStore((s) => s.setModelLoading);
