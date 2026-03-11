@@ -298,8 +298,8 @@ export default function HomePage() {
       {/* Download status toast */}
       {downloadStatus && (
         <div
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg z-50 max-w-[90vw]"
-          style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}
+          className="fixed left-1/2 -translate-x-1/2 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg z-50 max-w-[90vw]"
+          style={{ bottom: 'calc(72px + env(safe-area-inset-bottom))', backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}
         >
           <Loader2 size={18} className="animate-spin flex-shrink-0" style={{ color: 'var(--accent)' }} />
           <div className="min-w-0">
