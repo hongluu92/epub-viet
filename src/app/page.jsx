@@ -121,9 +121,18 @@ export default function HomePage() {
     return () => observer.disconnect();
   }, [loadMore, browseBooks.length]);
 
-  // Auto-download from timsach and navigate to reader
+  // Auto-download from timsach and navigate to reader.
+  // If book already exists locally (matched by timsachId), skip download.
   const handleDownloadAndRead = useCallback(async (book) => {
     if (downloadingId) return;
+    // Check if already downloaded locally
+    const existing = books.find(
+      (b) => b.epubAvailable !== false && (b.timsachId === book.id || b.id === book.id)
+    );
+    if (existing) {
+      router.push(`/reader?id=${existing.id}`);
+      return;
+    }
     setDownloadingId(book.id);
     const source = book.epubUrl ? 'đường dẫn đã lưu' : 'timsach.vn';
     setDownloadStatus({ title: book.title, message: `Đang tải từ ${source}...` });
@@ -140,7 +149,7 @@ export default function HomePage() {
     } finally {
       setDownloadingId(null);
     }
-  }, [downloadingId, addBookToStore, user, router]);
+  }, [downloadingId, addBookToStore, user, router, books]);
 
   const isSearching = searchQuery.trim().length >= 2;
   // Split local books (have epub) from cloud-only (need re-download)
