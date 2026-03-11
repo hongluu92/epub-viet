@@ -75,11 +75,22 @@ export default function ReaderContent({
     onScrollProgress?.(Math.min(1, Math.max(0, progress)));
   }, [onScrollProgress]);
 
-  // Reset restore flag when chapters change (e.g. chapter selection)
+  // Reset restore flag only when chapters are replaced (e.g. chapter selection),
+  // NOT when new chapters are appended via infinite scroll.
   const prevChaptersRef = useRef(loadedChapters);
   useEffect(() => {
     if (prevChaptersRef.current !== loadedChapters) {
-      restoreDoneRef.current = false;
+      const prev = prevChaptersRef.current;
+      const next = loadedChapters;
+      // Detect replacement: first chapter changed or array shrunk (jump to new chapter)
+      const isReplacement =
+        next.length === 0 ||
+        prev.length === 0 ||
+        prev[0]?.chapterIndex !== next[0]?.chapterIndex ||
+        next.length < prev.length;
+      if (isReplacement) {
+        restoreDoneRef.current = false;
+      }
       prevChaptersRef.current = loadedChapters;
     }
   }, [loadedChapters]);
