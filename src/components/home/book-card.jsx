@@ -1,26 +1,26 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowDownToLine, Loader2, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import BookCover from './book-cover';
 
 // Book card for horizontal scroll sections.
 // Shows cover with progress bar, title, and chapter count.
-// When onDownload is provided, shows download button instead of linking to reader.
-export default function BookCard({ book, onDownload, isDownloading, onDelete }) {
+// When onClick is provided, calls it instead of navigating via Link.
+export default function BookCard({ book, onClick, onDelete }) {
   const progress = book.readingProgress ?? 0;
   const chapterInfo = progress > 0
     ? `${Math.round(progress * 100)}% · Ch. ${(book.currentChapter ?? 0) + 1}/${book.chapterCount || '?'}`
     : book.chapterCount ? `${book.chapterCount} chuong` : (book.author || '');
 
-  const Wrapper = onDownload ? 'div' : Link;
-  const wrapperProps = onDownload
-    ? { className: 'flex-shrink-0 w-[100px] group' }
+  const Wrapper = onClick ? 'div' : Link;
+  const wrapperProps = onClick
+    ? { onClick: () => onClick(book), className: 'flex-shrink-0 w-[100px] group cursor-pointer' }
     : { href: `/reader?id=${book.id}`, className: 'flex-shrink-0 w-[100px] group' };
 
   return (
     <Wrapper {...wrapperProps}>
-      {/* Cover + progress bar + download button */}
+      {/* Cover + progress bar */}
       <div className="relative" style={{ width: 100, height: 140 }}>
         <BookCover
           coverUrl={book.coverUrl}
@@ -44,19 +44,6 @@ export default function BookCard({ book, onDownload, isDownloading, onDelete }) 
               }}
             />
           </div>
-        )}
-        {/* Download button overlay */}
-        {onDownload && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onDownload(book); }}
-            disabled={isDownloading}
-            className="absolute bottom-1 right-1 w-7 h-7 rounded-full flex items-center justify-center"
-            style={{ backgroundColor: 'var(--accent)', color: '#fff' }}
-          >
-            {isDownloading
-              ? <Loader2 size={14} className="animate-spin" />
-              : <ArrowDownToLine size={14} />}
-          </button>
         )}
         {/* Delete button overlay - visible on hover */}
         {onDelete && (

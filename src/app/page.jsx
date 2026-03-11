@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Search } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Search, Loader2 } from 'lucide-react';
 import { useLibraryStore } from '@/lib/stores/library-store';
 import { prefetchOnnxRuntime } from '@/lib/utils/prefetch-onnx';
 import { useEpubUpload } from '@/components/upload-modal';
@@ -20,7 +21,11 @@ export default function HomePage() {
   const addBookToStore = useLibraryStore((s) => s.addBook);
   const { triggerUpload, UploadProgress } = useEpubUpload();
   const { user } = useAuth();
+  const router = useRouter();
   const [activeGenre, setActiveGenre] = useState(firstGenre);
+
+  // Download status toast
+  const [downloadStatus, setDownloadStatus] = useState(null); // { title, message }
 
   // Timsach browse state
   const [browseBooks, setBrowseBooks] = useState([]);
@@ -116,21 +121,26 @@ export default function HomePage() {
     return () => observer.disconnect();
   }, [loadMore, browseBooks.length]);
 
-  // Download and import a timsach book (from store or kho sach)
-  const handleDownload = useCallback(async (book) => {
+  // Auto-download from timsach and navigate to reader
+  const handleDownloadAndRead = useCallback(async (book) => {
     if (downloadingId) return;
     setDownloadingId(book.id);
+    const source = book.epubUrl ? 'đường dẫn đã lưu' : 'timsach.vn';
+    setDownloadStatus({ title: book.title, message: `Đang tải từ ${source}...` });
     try {
       const metadata = await downloadAndImportEpub(book);
       addBookToStore(metadata);
-      // Sync metadata to cloud after download
       if (user?.uid) syncBookMetadata(user.uid, metadata);
+      setDownloadStatus(null);
+      router.push(`/reader?id=${metadata.id}`);
     } catch (err) {
       console.error('Download failed:', err);
+      setDownloadStatus({ title: book.title, message: 'Tải thất bại. Thử lại sau.' });
+      setTimeout(() => setDownloadStatus(null), 3000);
     } finally {
       setDownloadingId(null);
     }
-  }, [downloadingId, addBookToStore, user]);
+  }, [downloadingId, addBookToStore, user, router]);
 
   const isSearching = searchQuery.trim().length >= 2;
   // Split local books (have epub) from cloud-only (need re-download)
@@ -166,8 +176,7 @@ export default function HomePage() {
               <BookCard
                 key={book.id}
                 book={book}
-                onDownload={book.epubUrl ? handleDownload : undefined}
-                isDownloading={downloadingId === book.id}
+                onClick={book.epubUrl ? handleDownloadAndRead : undefined}
               />
             ))}
           </div>
@@ -231,8 +240,7 @@ export default function HomePage() {
                 <BookCard
                   key={book.id}
                   book={book}
-                  onDownload={handleDownload}
-                  isDownloading={downloadingId === book.id}
+                  onClick={handleDownloadAndRead}
                 />
               ))}
             </div>
@@ -258,8 +266,7 @@ export default function HomePage() {
                     <BookCard
                       key={book.id}
                       book={book}
-                      onDownload={handleDownload}
-                      isDownloading={downloadingId === book.id}
+                      onClick={handleDownloadAndRead}
                     />
                   ))}
                 </div>
@@ -278,6 +285,24 @@ export default function HomePage() {
           </>
         )}
       </section>
+
+      {/* Download status toast */}
+      {downloadStatus && (
+        <div
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg z-50 max-w-[90vw]"
+          style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}
+        >
+          <Loader2 size={18} className="animate-spin flex-shrink-0" style={{ color: 'var(--accent)' }} />
+          <div className="min-w-0">
+            <p className="text-sm font-medium truncate" style={{ color: 'var(--text)' }}>
+              {downloadStatus.title}
+            </p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              {downloadStatus.message}
+            </p>
+          </div>
+        </div>
+      )}
 
       <UploadProgress />
     </div>
