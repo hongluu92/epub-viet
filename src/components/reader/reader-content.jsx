@@ -75,19 +75,28 @@ export default function ReaderContent({
     onScrollProgress?.(Math.min(1, Math.max(0, progress)));
   }, [onScrollProgress]);
 
-  // Restore saved scroll progress after chapter content is mounted.
+  // Reset restore flag when chapters change (e.g. chapter selection)
+  const prevChaptersRef = useRef(loadedChapters);
+  useEffect(() => {
+    if (prevChaptersRef.current !== loadedChapters) {
+      restoreDoneRef.current = false;
+      prevChaptersRef.current = loadedChapters;
+    }
+  }, [loadedChapters]);
+
+  // Restore saved scroll progress (or reset to top) after chapter content is mounted.
   useEffect(() => {
     if (restoreDoneRef.current) return;
     const el = containerRef.current;
     if (!el || loadedChapters.length === 0) return;
     restoreDoneRef.current = true;
     const targetProgress = Math.min(1, Math.max(0, initialScrollProgress || 0));
-    if (targetProgress === 0) return;
 
+    // Always scroll to correct position (including top when progress is 0)
     const applyRestore = () => {
       const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight);
       el.scrollTop = maxScroll * targetProgress;
-      onScrollProgress?.(targetProgress);
+      if (targetProgress > 0) onScrollProgress?.(targetProgress);
     };
 
     requestAnimationFrame(() => {
