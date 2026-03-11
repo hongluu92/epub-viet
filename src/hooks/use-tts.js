@@ -13,7 +13,7 @@ import {
   dispose as disposeEngine,
 } from '@/lib/services/tts-engine';
 
-const PREFETCH_AHEAD = 1;
+const PREFETCH_AHEAD = 2;
 const STARTUP_BUFFER_COUNT = 1;        // play after first sentence is ready
 const STARTUP_BUFFER_MAX_COUNT = 3;    // cap buffering to avoid long prepare wait
 const STARTUP_BUFFER_TARGET_MS = 2000; // 3s is enough headroom before stall risk
@@ -96,16 +96,13 @@ export function useTts() {
     return task;
   }, []);
 
-  /** Prefetch only the nearest next sentence to protect current sentence latency */
+  /** Prefetch next sentences to ensure gapless playback */
   const prefetch = useCallback((sentences, startIdx, speed, runId) => {
-    // Keep at most one background synth task to avoid stealing CPU from current sentence.
-    if (prefetchInFlight.current.size >= 1) return;
     for (let i = startIdx; i < Math.min(startIdx + PREFETCH_AHEAD, sentences.length); i++) {
       if (abortRef.current || runId !== playRunIdRef.current) break;
       const key = `${i}-${speed}`;
       if (prefetchCache.current.has(key) || prefetchInFlight.current.has(key)) continue;
       void getOrCreateBuffer(sentences, i, speed, runId);
-      break;
     }
   }, [getOrCreateBuffer]);
 
@@ -188,14 +185,13 @@ export function useTts() {
 
       // Skip null buffers (empty text)
       if (!buffer) {
-        // One retry for the current sentence before giving up.
         prefetchInFlight.current.delete(cacheKey);
         buffer = await getOrCreateBuffer(sentences, i, speed, runId);
       }
       if (!buffer) continue;
       if (abortRef.current || runId !== playRunIdRef.current) break;
 
-      // Start prefetching next sentences in background
+      // Prefetch next sentences NOW — while current sentence plays, next ones synthesize
       prefetch(sentences, i + 1, speed, runId);
 
       // Play current sentence and wait for it to end
