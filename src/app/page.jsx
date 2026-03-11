@@ -10,7 +10,7 @@ import { useEpubUpload } from '@/components/upload-modal';
 import { HomeHeader, BookCard, GenreChips } from '@/components/home';
 import { BookShelfSkeleton } from '@/components/loading-skeleton';
 import { useAuth } from '@/hooks/use-auth';
-import { syncBookMetadata } from '@/lib/services/firebase-sync-service';
+import { syncBookMetadata, deleteBookFromCloud } from '@/lib/services/firebase-sync-service';
 import {
   GENRE_SLUG_MAP, fetchBooksByGenre, downloadAndImportEpub, searchBooks,
 } from '@/lib/services/timsach-service';
@@ -20,6 +20,7 @@ const firstGenre = Object.keys(GENRE_SLUG_MAP)[0];
 export default function HomePage() {
   const { books, isLoading, loadBooks } = useLibraryStore();
   const addBookToStore = useLibraryStore((s) => s.addBook);
+  const removeBook = useLibraryStore((s) => s.removeBook);
   const { triggerUpload, UploadProgress } = useEpubUpload();
   const { user } = useAuth();
   const router = useRouter();
@@ -184,7 +185,10 @@ export default function HomePage() {
             style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
           >
             {localBooks.map((book) => (
-              <BookCard key={book.id} book={book} />
+              <BookCard key={book.id} book={book} onContextDelete={(b) => {
+                removeBook(b.id);
+                if (user?.uid) deleteBookFromCloud(user.uid, b.id);
+              }} />
             ))}
             {cloudOnlyBooks.map((book) => (
               <BookCard
