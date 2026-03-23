@@ -20,6 +20,10 @@ export const useTtsStore = create((set) => ({
   preparing: false,
   pausing: false,
 
+  // TTS availability (false when WASM blocked, e.g. Edge Enhanced Protection)
+  ttsUnavailable: false,
+  ttsUnavailableReason: null,
+
   setPlaying: (isPlaying) => set({ isPlaying, isPaused: false, preparing: false, pausing: false }),
   setPaused: (isPaused) => set({ isPaused, pausing: false }),
   setPreparing: (preparing) => set({ preparing }),
@@ -27,6 +31,7 @@ export const useTtsStore = create((set) => ({
   setModelLoaded: (modelLoaded) => set({ modelLoaded }),
   setModelLoading: (modelLoading) => set({ modelLoading }),
   setModelProgress: (modelProgress) => set({ modelProgress }),
+  setTtsUnavailable: (reason) => set({ ttsUnavailable: true, ttsUnavailableReason: reason }),
 
   setPosition: (chapter, paragraph, sentence, flatIndex = 0) =>
     set({ currentChapter: chapter, currentParagraph: paragraph, currentSentence: sentence, currentFlatIndex: flatIndex }),

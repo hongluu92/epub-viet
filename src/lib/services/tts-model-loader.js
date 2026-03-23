@@ -13,6 +13,19 @@ const MODEL_KEY = 'nh.onnx';
 
 let onnxSession = null;
 
+/** Check if WebAssembly is available (blocked by Edge Enhanced Protection) */
+export function isWasmAvailable() {
+  try {
+    if (typeof WebAssembly !== 'object') return false;
+    // Minimal WASM module validation — tests compile + instantiate
+    const bytes = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0]);
+    const mod = new WebAssembly.Module(bytes);
+    return mod instanceof WebAssembly.Module;
+  } catch {
+    return false;
+  }
+}
+
 // --- IndexedDB helpers ---
 
 function openDB() {
@@ -114,6 +127,9 @@ export async function downloadModel(onProgress) {
  */
 export async function loadModel(onProgress) {
   if (onnxSession) return onnxSession;
+  if (!isWasmAvailable()) {
+    throw new Error('WebAssembly is not available. TTS requires WASM support.');
+  }
 
   const ort = await import('onnxruntime-web');
   // Multi-threading requires crossOriginIsolated (COOP/COEP headers).

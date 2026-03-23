@@ -99,10 +99,26 @@ export function scheduleBuffer(audioBuffer, startAt, volume = 1.0) {
 
   const promise = new Promise((resolve) => {
     source.onended = () => {
+      source.disconnect();
       activeSources = activeSources.filter((s) => s !== source);
       resolve();
     };
   });
+
+  // Cap active sources to prevent memory buildup on iOS Safari.
+  // Only evict sources whose scheduled end time has passed.
+  const now = ctx.currentTime;
+  activeSources = activeSources.filter((s) => {
+    try {
+      // Sources with null buffer are already done
+      if (!s.buffer) { s.disconnect(); return false; }
+      return true;
+    } catch { return false; }
+  });
+  while (activeSources.length >= 4) {
+    const old = activeSources.shift();
+    try { old.stop(); old.disconnect(); } catch { /* already stopped */ }
+  }
 
   activeSources.push(source);
   source.start(startAt);

@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { syncBookProgress, getBookProgress } from '@/lib/services/firebase-sync-service';
 import { useTts } from '@/hooks/use-tts';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
-import { isModelCached, downloadModel } from '@/lib/services/tts-model-loader';
+import { isWasmAvailable } from '@/lib/services/tts-model-loader';
 import { useTtsStore } from '@/lib/stores/tts-store';
 import ReaderHeader from '@/components/reader/reader-header';
 import ReadingProgressBar from '@/components/reader/reading-progress-bar';
@@ -32,8 +32,11 @@ export default function ReaderPageClient() {
   const [isLoading, setIsLoading] = useState(true);
 
   const updateBookProgress = useLibraryStore((s) => s.updateBookProgress);
+  const lastReadBook = useLibraryStore((s) => s.lastReadBook);
+  const lastReadChapter = useLibraryStore((s) => s.lastReadChapter);
+  const setLastRead = useLibraryStore((s) => s.setLastRead);
   const { user } = useAuth();
-  const { play, pause, resume, stop: stopTts, warmup, dispose: disposeTts } = useTts();
+  const { play, pause, resume, stop: stopTts, dispose: disposeTts } = useTts();
   const autoPlayChapterRef = useRef(null);
   const saveTimerRef = useRef(null);
   const latestBookRef = useRef(null);
@@ -72,7 +75,16 @@ export default function ReaderPageClient() {
     latestScrollRef.current = scrollProgress;
   }, [scrollProgress]);
 
-  // Load book and first chapter — parallelized with deferred cloud sync
+  // Instant render from Zustand cache (warm path — show book metadata immediately)
+  // Chapter content still loads from IndexedDB (persist only stores title/index to save localStorage)
+  useEffect(() => {
+    if (!id || !lastReadBook || lastReadBook.id !== id) return;
+    setBook(lastReadBook);
+    setChapterMeta(lastReadBook.chapterTitles || []);
+    setCurrentChapterIndex(lastReadBook.currentChapter || 0);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load book and first chapter from IndexedDB (cold path or background refresh)
   useEffect(() => {
     if (!id) return;
 
@@ -108,6 +120,11 @@ export default function ReaderPageClient() {
         const firstChapter = await getChapter(id, startChapter);
         if (firstChapter) {
           setLoadedChapters([firstChapter]);
+          // Cache for instant re-open next time
+          setLastRead(
+            { ...bookData, chapterTitles: titles },
+            firstChapter
+          );
         }
       } catch (err) {
         console.error('Failed to load book:', err);
@@ -152,47 +169,16 @@ export default function ReaderPageClient() {
     })();
   }, [id, user, book?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Download TTS model to IndexedDB in background (if not cached)
-  const setModelLoading = useTtsStore((s) => s.setModelLoading);
-  const setModelProgress = useTtsStore((s) => s.setModelProgress);
-  const setModelLoaded = useTtsStore((s) => s.setModelLoaded);
-  const modelLoaded = useTtsStore((s) => s.modelLoaded);
+  // TTS state selectors (model download now happens on first play in use-tts.js)
   const isPlaying = useTtsStore((s) => s.isPlaying);
   const isPaused = useTtsStore((s) => s.isPaused);
   const currentFlatIndex = useTtsStore((s) => s.currentFlatIndex);
-  // Defer TTS model check so it doesn't compete with book-loading IndexedDB ops
-  useEffect(() => {
-    let cancelled = false;
-    const checkModel = async () => {
-      if (cancelled) return;
-      if (await isModelCached()) {
-        if (!cancelled) setModelLoaded(true);
-        return;
-      }
-      setModelLoading(true);
-      try {
-        await downloadModel((p) => { if (!cancelled) setModelProgress(p); });
-        if (!cancelled) setModelLoaded(true);
-      } catch (err) {
-        console.error('[TTS] Model download failed:', err);
-      } finally {
-        if (!cancelled) setModelLoading(false);
-      }
-    };
-    const id = typeof requestIdleCallback === 'function'
-      ? requestIdleCallback(() => checkModel())
-      : setTimeout(() => checkModel(), 100);
-    return () => {
-      cancelled = true;
-      typeof requestIdleCallback === 'function' ? cancelIdleCallback(id) : clearTimeout(id);
-    };
-  }, [setModelLoading, setModelProgress, setModelLoaded]);
 
-  // Pre-warm ONNX session + phonemizer worker once model is ready in IndexedDB.
-  // This runs in background so first-play latency is avoided without blocking page load.
+  // Check WASM availability once — if blocked, mark TTS unavailable early
+  const setTtsUnavailable = useTtsStore((s) => s.setTtsUnavailable);
   useEffect(() => {
-    if (modelLoaded) warmup();
-  }, [modelLoaded, warmup]);
+    if (!isWasmAvailable()) setTtsUnavailable('wasm-blocked');
+  }, [setTtsUnavailable]);
 
   // Stop TTS when leaving the reader page
   useEffect(() => {
@@ -406,8 +392,10 @@ export default function ReaderPageClient() {
 
   if (!book) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
-        <p style={{ color: 'var(--text-muted)' }}>Book not found</p>
+      <div className="min-h-screen flex flex-col items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
+        <div className="text-3xl mb-3">📖</div>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Không tìm thấy sách</p>
+        <a href="/epub-viet/" className="text-xs mt-2" style={{ color: 'var(--accent)' }}>Về trang chủ</a>
       </div>
     );
   }

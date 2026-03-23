@@ -13,6 +13,7 @@ import {
   stop as stopEngine,
   dispose as disposeEngine,
 } from '@/lib/services/tts-engine';
+import { isModelCached, downloadModel, isWasmAvailable } from '@/lib/services/tts-model-loader';
 
 const PREFETCH_AHEAD = 2;
 const STARTUP_BUFFER_COUNT = 1;        // play after first sentence is ready
@@ -42,8 +43,8 @@ export function useTts() {
 
   const {
     isPlaying, isPaused, modelLoaded, modelLoading, modelProgress, preparing,
-    setPlaying, setPaused, setPreparing, setPausing, setModelLoaded, setModelLoading, setModelProgress,
-    setPosition, reset,
+    setPlaying, setPaused, setPreparing, setPausing, setModelLoaded, setModelLoading,
+    setModelProgress, setPosition, reset,
   } = useTtsStore();
 
   const ttsSpeed = useAppStore((s) => s.ttsSpeed);
@@ -83,7 +84,14 @@ export function useTts() {
       try {
         const buffer = await synthesizeSentence(sentences[idx], speed);
         if (abortRef.current || runId !== playRunIdRef.current) return null;
-        if (buffer) prefetchCache.current.set(key, buffer);
+        if (buffer) {
+          prefetchCache.current.set(key, buffer);
+          // Evict oldest entries to cap memory on iOS Safari
+          while (prefetchCache.current.size > 3) {
+            const oldest = prefetchCache.current.keys().next().value;
+            prefetchCache.current.delete(oldest);
+          }
+        }
         return buffer;
       } catch (err) {
         console.error(`Synthesis failed for sentence ${idx}:`, err);
@@ -126,12 +134,27 @@ export function useTts() {
     prefetchInFlight.current.clear();
     setPreparing(true);
 
-    // Ensure ONNX session is ready (model must be in IndexedDB already)
+    // Download model on first play if not cached (deferred from reader load)
     try {
+      if (!isWasmAvailable()) {
+        useTtsStore.getState().setTtsUnavailable('wasm-blocked');
+        setPreparing(false);
+        return;
+      }
+      if (!(await isModelCached())) {
+        setModelLoading(true);
+        await downloadModel((p) => setModelProgress(p));
+        setModelLoading(false);
+      }
       await initEngine((progress) => setModelProgress(progress));
+      setModelLoaded(true);
     } catch (err) {
       console.error('TTS engine init failed:', err);
+      setModelLoading(false);
       setPreparing(false);
+      if (err.message?.includes('WASM') || err.message?.includes('WebAssembly')) {
+        useTtsStore.getState().setTtsUnavailable('wasm-blocked');
+      }
       return;
     }
 
@@ -189,11 +212,6 @@ export function useTts() {
       let buffer = await getOrCreateBuffer(sentences, i, speed, runId);
       prefetchCache.current.delete(cacheKey);
 
-      // Skip null buffers (empty text)
-      if (!buffer) {
-        prefetchInFlight.current.delete(cacheKey);
-        buffer = await getOrCreateBuffer(sentences, i, speed, runId);
-      }
       if (!buffer) continue;
       if (abortRef.current || runId !== playRunIdRef.current) break;
 
@@ -203,6 +221,7 @@ export function useTts() {
       const startAt = Math.max(nextStartTime, now);
       const { endTime, promise } = scheduleSentence(buffer, startAt);
       nextStartTime = endTime;
+      buffer = null; // Release reference for GC (iOS memory pressure)
 
       // Prefetch next sentences NOW — while current sentence plays, next ones synthesize
       prefetch(sentences, i + 1, speed, runId);
@@ -221,7 +240,7 @@ export function useTts() {
       reset();
       onComplete?.({ reason: 'finished', chapterIdx });
     }
-  }, [getOrCreateBuffer, prefetch, reset, setModelProgress, setPlaying, setPosition, setPreparing]);
+  }, [getOrCreateBuffer, prefetch, reset, setModelLoading, setModelProgress, setPlaying, setPosition, setPreparing]);
 
   const pauseTts = useCallback(async () => {
     setPausing(true);

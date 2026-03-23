@@ -30,6 +30,10 @@ export const useAppStore = create(
       ttsSpeed: 1.0,
       setTtsSpeed: (ttsSpeed) => set({ ttsSpeed }),
 
+      // First-time welcome hint
+      hasSeenWelcome: false,
+      setHasSeenWelcome: () => set({ hasSeenWelcome: true }),
+
       // Bookmarks: array of { bookId, chapterIndex, paragraphIndex, sentenceIndex, text }
       bookmarks: [],
       addBookmark: (bm) => set((s) => {

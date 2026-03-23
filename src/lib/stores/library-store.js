@@ -1,12 +1,20 @@
 'use client';
 
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import * as db from '@/lib/services/indexeddb-service';
 
-export const useLibraryStore = create((set) => ({
+export const useLibraryStore = create(
+  persist(
+    (set) => ({
   books: [],
   currentBook: null,
   isLoading: false,
+
+  // Instant re-open cache — persisted to localStorage for <200ms warm open
+  lastReadBook: null,
+  lastReadChapter: null,
+  setLastRead: (book, chapter) => set({ lastReadBook: book, lastReadChapter: chapter }),
 
   setBooks: (books) => set({ books }),
   setCurrentBook: (book) => set({ currentBook: book }),
@@ -99,4 +107,18 @@ export const useLibraryStore = create((set) => ({
       ),
     }));
   },
-}));
+}),
+    {
+      name: 'readflow-library',
+      // Only persist last-read cache (not full book list — that comes from IndexedDB).
+      // Strip chapter content to avoid localStorage quota (~5MB on mobile).
+      // Full chapter loads from IndexedDB in ~50ms on cold path.
+      partialize: (state) => ({
+        lastReadBook: state.lastReadBook,
+        lastReadChapter: state.lastReadChapter
+          ? { chapterIndex: state.lastReadChapter.chapterIndex, title: state.lastReadChapter.title, bookId: state.lastReadChapter.bookId }
+          : null,
+      }),
+    }
+  )
+);

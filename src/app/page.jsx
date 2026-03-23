@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Search, Loader2 } from 'lucide-react';
 import { useLibraryStore } from '@/lib/stores/library-store';
+import { useAppStore } from '@/lib/stores/app-store';
 import { prefetchOnnxRuntime } from '@/lib/utils/prefetch-onnx';
 import { useEpubUpload } from '@/components/upload-modal';
 import { HomeHeader, BookCard, GenreChips } from '@/components/home';
@@ -24,6 +25,8 @@ export default function HomePage() {
   const { triggerUpload, UploadProgress } = useEpubUpload();
   const { user } = useAuth();
   const router = useRouter();
+  const hasSeenWelcome = useAppStore((s) => s.hasSeenWelcome);
+  const setHasSeenWelcome = useAppStore((s) => s.setHasSeenWelcome);
   const [activeGenre, setActiveGenre] = useState(firstGenre);
 
   // Download status toast
@@ -149,7 +152,7 @@ export default function HomePage() {
       router.push(`/reader?id=${metadata.id}`);
     } catch (err) {
       console.error('Download failed:', err);
-      setDownloadStatus({ title: book.title, message: 'Tải thất bại. Thử lại sau.' });
+      setDownloadStatus({ title: book.title, message: 'Tải thất bại. Kiểm tra kết nối mạng và thử lại.' });
       setTimeout(() => setDownloadStatus(null), 3000);
     } finally {
       setDownloadingId(null);
@@ -164,6 +167,28 @@ export default function HomePage() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
       <HomeHeader onImport={() => triggerUpload()} />
+
+      {/* Welcome hint for first-time users */}
+      {!hasSeenWelcome && (
+        <div className="mx-4 mb-4 p-4 rounded-xl border"
+          style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}>
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="font-semibold text-sm" style={{ color: 'var(--text)' }}>
+                Chào mừng đến ReadFlow!
+              </p>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                Tải sách từ Kho sách bên dưới hoặc nhập file EPUB của bạn.
+              </p>
+            </div>
+            <button onClick={() => setHasSeenWelcome()}
+              className="text-xs px-2 py-1 rounded"
+              style={{ color: 'var(--text-muted)' }}>
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* My Library section - horizontal scroll preview */}
       <section className="mb-6">
@@ -199,9 +224,27 @@ export default function HomePage() {
             ))}
           </div>
         ) : (
-          <p className="px-4 py-6 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-            Chưa có sách nào. Tải sách từ Kho sách bên dưới để bắt đầu đọc!
-          </p>
+          <div className="px-4 py-8 text-center">
+            <div className="text-4xl mb-3">📚</div>
+            <p className="text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>
+              Tủ sách trống
+            </p>
+            <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
+              Bắt đầu bằng cách tải sách từ Kho sách hoặc nhập file EPUB
+            </p>
+            <div className="flex gap-2 justify-center">
+              <button onClick={() => triggerUpload()}
+                className="text-xs px-3 py-1.5 rounded-lg font-medium"
+                style={{ backgroundColor: 'var(--accent)', color: 'white' }}>
+                Nhập EPUB
+              </button>
+              <button onClick={() => document.getElementById('browse-section')?.scrollIntoView({ behavior: 'smooth' })}
+                className="text-xs px-3 py-1.5 rounded-lg font-medium"
+                style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
+                Kho sách
+              </button>
+            </div>
+          </div>
         )}
       </section>
 
@@ -211,7 +254,7 @@ export default function HomePage() {
       </div>
 
       {/* Book Store section */}
-      <section className="mb-6">
+      <section id="browse-section" className="mb-6">
         <div className="flex items-center justify-between px-4 mb-3">
           <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>
             Kho sách

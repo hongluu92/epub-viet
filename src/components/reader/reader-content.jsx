@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useAppStore } from '@/lib/stores/app-store';
 import { FONT_FAMILIES } from '@/lib/utils/theme-tokens';
 import ChapterBlock from './chapter-block';
@@ -19,6 +19,8 @@ export default function ReaderContent({
   const containerRef = useRef(null);
   const sentinelRef = useRef(null);
   const restoreDoneRef = useRef(false);
+  const [slideClass, setSlideClass] = useState('');
+  const slideTimerRef = useRef(null);
   const { fontSize, lineHeight, readerMargin, fontFamily } = useAppStore();
 
   // Infinite scroll via IntersectionObserver
@@ -93,6 +95,10 @@ export default function ReaderContent({
         restoreDoneRef.current = false;
         // Immediately reset scroll to top to avoid race with scroll events
         if (containerRef.current) containerRef.current.scrollTop = 0;
+        // Trigger slide animation (with cleanup)
+        clearTimeout(slideTimerRef.current);
+        setSlideClass('chapter-slide-enter');
+        slideTimerRef.current = setTimeout(() => setSlideClass(''), 300);
       }
       prevChaptersRef.current = loadedChapters;
     }
@@ -129,7 +135,7 @@ export default function ReaderContent({
       style={{ backgroundColor: 'var(--bg)' }}
     >
       <div
-        className="reader-content py-6 pb-20"
+        className={`reader-content py-6 pb-20 ${slideClass}`}
         style={{
           '--reader-font-size': `${fontSize}px`,
           '--reader-line-height': String(lineHeight),

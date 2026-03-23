@@ -1,8 +1,8 @@
 # ReadFlow Project Progress Tracker
 
 **Project:** Vietnamese EPUB Reader with Offline TTS
-**Last Updated:** 2026-03-08 21:59
-**Current Phase:** 6 of 8 COMPLETE
+**Last Updated:** 2026-03-23 21:50
+**Current Phase:** 6.5 — iOS/Edge Stability Fixes COMPLETE
 
 ---
 
@@ -15,10 +15,11 @@ Phase 03: Reader UI & Theming                [████████] 100% COM
 Phase 04: TTS Engine & Controls              [████████] 100% COMPLETE
 Phase 05: Firebase Auth & Sync               [████████] 100% COMPLETE
 Phase 06: Home Library & Navigation          [████████] 100% COMPLETE
+Phase 6.5: iOS/Edge Stability Fixes          [████████] 100% COMPLETE
 Phase 07: Search Aggregator                  [░░░░░░░░] 0% PENDING
 Phase 08: PWA & Polish                       [░░░░░░░░] 0% PENDING
 
-TOTAL: 6 of 8 phases complete (75%)
+TOTAL: 7 of 9 phases complete (78%)
 ```
 
 ---
@@ -222,6 +223,28 @@ TOTAL: 6 of 8 phases complete (75%)
 
 ---
 
+### Phase 6.5: iOS/Edge Stability Fixes (3h)
+**Status:** ✓ COMPLETE
+**Completed:** 2026-03-23
+
+**Deliverables:**
+- iOS Safari memory crash fix (prefetch cache cap, audio source cleanup, reduced store subscriptions)
+- Edge Enhanced Protection graceful degradation (WASM detection, TTS unavailable banner)
+- Reduced per-chapter Zustand subscriptions from 200+ to 1
+- Fixed requestIdleCallback polyfill for iOS Safari
+
+**Key Files Modified:**
+- `src/lib/services/tts-audio-player.js` — Audio source disconnect + cap
+- `src/hooks/use-tts.js` — Prefetch cache LRU eviction, buffer nulling
+- `src/components/reader/chapter-block.jsx` — Single TTS store subscription per chapter
+- `src/components/reader/sentence-span.jsx` — Accept isActive as prop
+- `src/lib/services/tts-model-loader.js` — WASM availability detection
+- `src/lib/stores/tts-store.js` — ttsUnavailable state
+- `src/components/reader/tts-bar.jsx` — Unavailable banner
+- `src/app/reader/reader-page-client.jsx` — WASM guard + polyfill fix
+
+---
+
 ### Phase 07: Search Aggregator (4h)
 **Status:** ○ PENDING
 **Blocked By:** None (can parallel with Phase 05-06)
@@ -293,8 +316,8 @@ TOTAL: 6 of 8 phases complete (75%)
       Planned end: 2026-03-11
 ```
 
-**Total Effort Completed:** 33.5h of 40h (84%)
-**Total Effort Remaining:** 6.5h of 40h (16%)
+**Total Effort Completed:** 36.5h of 43h (85%)
+**Total Effort Remaining:** 6.5h of 43h (15%)
 
 ---
 
@@ -322,6 +345,22 @@ TOTAL: 6 of 8 phases complete (75%)
 | Firebase quota exceeded | LOW | HIGH | Monitor usage, set up alerts |
 | Vercel deployment issues | LOW | MEDIUM | Test CI/CD early in Phase 05 |
 | Missing unit test coverage | HIGH | MEDIUM | Establish Jest suite in Phase 5 |
+| iOS Safari memory crash during TTS | HIGH | HIGH | ✓ FIXED: Prefetch cache cap, audio source cleanup, reduced subscriptions |
+| Edge Enhanced Protection blocks WASM | MEDIUM | MEDIUM | ✓ FIXED: WASM detection + graceful TTS disable banner |
+
+---
+
+## Browser Compatibility
+
+| Browser | Reading | TTS | Notes |
+|---------|---------|-----|-------|
+| Chrome 95+ | ✓ | ✓ | Full support |
+| Firefox 94+ | ✓ | ✓ | Full support |
+| Safari 16+ (macOS) | ✓ | ✓ | Full support |
+| Safari (iOS 16+) | ✓ | ✓ | Fixed in Phase 6.5 (memory management) |
+| Edge 95+ | ✓ | ✓ | Full support |
+| Edge (Enhanced Protection) | ✓ | ✗ | WASM blocked; shows "TTS unavailable" banner |
+| Samsung Internet | ✓ | ? | Untested |
 
 ---
 

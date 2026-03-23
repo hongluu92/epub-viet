@@ -1,9 +1,21 @@
 'use client';
 
 import { memo } from 'react';
+import { useTtsStore } from '@/lib/stores/tts-store';
 import SentenceSpan from './sentence-span';
 
+// Single store subscription per chapter instead of per-sentence (reduces 200+ → 1)
+function useChapterActiveSentence(chapterIndex) {
+  return useTtsStore((s) =>
+    s.isPlaying && s.currentChapter === chapterIndex
+      ? { p: s.currentParagraph, s: s.currentSentence }
+      : null
+  );
+}
+
 function ChapterBlock({ chapter, bookId, onLongPressSentence }) {
+  const active = useChapterActiveSentence(chapter.chapterIndex);
+
   return (
     <div className="mb-8">
       {/* Chapter title */}
@@ -25,6 +37,7 @@ function ChapterBlock({ chapter, bookId, onLongPressSentence }) {
               chapterIndex={chapter.chapterIndex}
               paragraphIndex={pIdx}
               sentenceIndex={sIdx}
+              isActive={active?.p === pIdx && active?.s === sIdx}
               onLongPress={onLongPressSentence}
             />
           ))}

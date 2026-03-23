@@ -19,7 +19,7 @@ export default function TtsBar({
   resume,
   stop,
 }) {
-  const { isPlaying, isPaused, modelLoading, modelProgress, preparing, pausing, currentFlatIndex } = useTtsStore();
+  const { isPlaying, isPaused, modelLoading, modelProgress, preparing, pausing, currentFlatIndex, ttsUnavailable } = useTtsStore();
   const { ttsSpeed, setTtsSpeed } = useAppStore();
 
   const totalSentences = sentences?.length || 0;
@@ -61,6 +61,26 @@ export default function TtsBar({
 
   const speedLabel = ttsSpeed === 1.0 ? '1x' : `${ttsSpeed}x`;
 
+  // Show banner when WASM is blocked (Edge Enhanced Protection, etc.)
+  if (ttsUnavailable) {
+    return (
+      <div
+        className="absolute bottom-0 left-0 right-0 flex items-center justify-center border-t"
+        style={{
+          background: 'var(--nav-bg)',
+          borderColor: 'var(--border)',
+          padding: '10px 20px',
+          paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
+          zIndex: 50,
+        }}
+      >
+        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+          Trình duyệt không hỗ trợ đọc văn bản (WASM bị chặn)
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div
       className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-4 backdrop-blur-xl border-t"
@@ -94,7 +114,10 @@ export default function TtsBar({
         disabled={showLoading}
       >
         {modelLoading ? (
-          <span className="text-xs font-semibold">{modelProgress}%</span>
+          <div className="flex flex-col items-center leading-none">
+            <span className="text-xs font-semibold">{modelProgress}%</span>
+            <span className="text-[8px]" style={{ color: 'rgba(255,255,255,0.7)' }}>Tải giọng đọc</span>
+          </div>
         ) : preparing || pausing ? (
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="animate-spin">
             <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />

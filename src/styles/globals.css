@@ -86,6 +86,12 @@ body {
   border-radius: 0 4px 4px 0;
   padding: 2px 4px 2px 8px;
   margin-left: -11px;
+  animation: tts-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes tts-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.75; }
 }
 
 .sentence-span.bookmarked {
@@ -113,4 +119,46 @@ body {
 ::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 3px;
+}
+
+/* ===== Theme Transition ===== */
+html.theme-transitioning,
+html.theme-transitioning * {
+  transition: background-color 300ms ease, color 300ms ease, border-color 300ms ease !important;
+}
+
+/* ===== Book Card Press Effect ===== */
+.book-card-pressable {
+  transition: transform 150ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.book-card-pressable:active {
+  transform: scale(0.95);
+}
+
+/* ===== Page Fade-In ===== */
+.page-enter {
+  animation: page-fade-in 200ms ease-out;
+}
+@keyframes page-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== Chapter Slide-In ===== */
+.chapter-slide-enter {
+  animation: chapter-slide-in 250ms ease-out;
+}
+@keyframes chapter-slide-in {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ===== Respect Reduced Motion ===== */
+@media (prefers-reduced-motion: reduce) {
+  .tts-active { animation: none !important; }
+  .book-card-pressable:active { transform: none; }
+  .page-enter, .chapter-slide-enter { animation: none !important; }
+  html.theme-transitioning,
+  html.theme-transitioning * { transition: none !important; }
 }

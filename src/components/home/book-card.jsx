@@ -11,12 +11,12 @@ export default function BookCard({ book, onClick, onDelete }) {
   const progress = book.readingProgress ?? 0;
   const chapterInfo = progress > 0
     ? `${Math.round(progress * 100)}% · Ch. ${(book.currentChapter ?? 0) + 1}/${book.chapterCount || '?'}`
-    : book.chapterCount ? `${book.chapterCount} chuong` : (book.author || '');
+    : book.chapterCount ? `${book.chapterCount} chương` : (book.author || '');
 
   const Wrapper = onClick ? 'div' : Link;
   const wrapperProps = onClick
-    ? { onClick: () => onClick(book), className: 'flex-shrink-0 w-[100px] group cursor-pointer' }
-    : { href: `/reader?id=${book.id}`, className: 'flex-shrink-0 w-[100px] group' };
+    ? { onClick: () => onClick(book), className: 'flex-shrink-0 w-[100px] group cursor-pointer book-card-pressable' }
+    : { href: `/reader?id=${book.id}`, className: 'flex-shrink-0 w-[100px] group book-card-pressable' };
 
   return (
     <Wrapper {...wrapperProps}>

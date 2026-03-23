@@ -2,8 +2,8 @@
 
 Vietnamese offline-first EPUB reader with Piper WASM TTS engine, Firebase sync, and search aggregator.
 
-**Status:** Phase 6 of 8 Complete (75% done)
-**Last Updated:** 2026-03-08
+**Status:** Phase 6.5 of 8 Complete (78% done) — iOS/Edge stability fixes applied
+**Last Updated:** 2026-03-23
 **Framework:** Next.js 15 + React 19 + Tailwind CSS + Zustand
 
 ---
@@ -251,9 +251,10 @@ Speed is controlled via the `lengthScale` parameter:
 - Cache Storage API
 
 **Tested Browsers:**
-- Chrome/Edge 95+
-- Firefox 94+
-- Safari 15+
+- Chrome/Edge 95+ (Full support)
+- Firefox 94+ (Full support)
+- Safari 16+ / iOS Safari (Full support — memory-optimized TTS)
+- Edge Enhanced Protection (Reading works; TTS unavailable — WASM blocked)
 
 ---
 
@@ -464,11 +465,12 @@ MIT License - See LICENSE file for details
 | 4 | ✓ Complete | TTS engine service layer |
 | 5 | ✓ Complete | Firebase auth, Firestore sync |
 | 6 | ✓ Complete | Library UI, navigation |
+| 6.5 | ✓ Complete | iOS/Edge stability fixes |
 | 7 | ○ Pending | Search aggregator |
 | 8 | ○ Pending | PWA, polish |
 
-**Progress:** 6/8 phases (75%)
-**Effort Used:** 33.5/40 hours (84%)
+**Progress:** 7/9 phases (78%)
+**Effort Used:** 36.5/43 hours (85%)
 **Next:** Phase 07 (Search Aggregator)
 
 ---

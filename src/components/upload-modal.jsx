@@ -21,8 +21,8 @@ export function useEpubUpload() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.endsWith('.epub')) { setError('Vui long chon file EPUB'); return; }
-    if (file.size > 200 * 1024 * 1024) { setError('File qua lon (toi da 200MB)'); return; }
+    if (!file.name.endsWith('.epub')) { setError('Vui lòng chọn file EPUB'); return; }
+    if (file.size > 200 * 1024 * 1024) { setError('File quá lớn (tối đa 200MB)'); return; }
 
     setError(null);
     setIsParsing(true);
@@ -38,7 +38,7 @@ export function useEpubUpload() {
       if (user?.uid) syncBookMetadata(user.uid, metadata);
     } catch (err) {
       console.error('EPUB parse error:', err);
-      setError(err.message || 'Khong the doc file EPUB');
+      setError(err.message || 'Không thể đọc file EPUB. Vui lòng thử file khác.');
     } finally {
       setIsParsing(false);
       setProgress(0);
@@ -67,7 +67,7 @@ export function useEpubUpload() {
                   style={{ width: `${Math.round(progress * 100)}%`, backgroundColor: 'var(--accent)' }} />
               </div>
               <p className="text-sm mt-2 text-center" style={{ color: 'var(--text-muted)' }}>
-                Dang xu ly... {Math.round(progress * 100)}%
+                Đang xử lý... {Math.round(progress * 100)}%
               </p>
             </div>
           </div>

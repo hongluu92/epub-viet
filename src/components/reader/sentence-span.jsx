@@ -1,18 +1,7 @@
 'use client';
 
 import { memo, useRef, useCallback, useEffect } from 'react';
-import { useTtsStore } from '@/lib/stores/tts-store';
 import { useAppStore } from '@/lib/stores/app-store';
-
-// Selective TTS subscription — only re-render when THIS sentence's active state changes
-function useIsTtsActive(chapterIndex, paragraphIndex, sentenceIndex) {
-  return useTtsStore((s) =>
-    s.isPlaying &&
-    s.currentChapter === chapterIndex &&
-    s.currentParagraph === paragraphIndex &&
-    s.currentSentence === sentenceIndex
-  );
-}
 
 // Bookmark lookup via Set key for O(1) instead of O(n) per sentence
 function useIsBookmarked(bookId, chapterIndex, paragraphIndex, sentenceIndex) {
@@ -24,12 +13,12 @@ function useIsBookmarked(bookId, chapterIndex, paragraphIndex, sentenceIndex) {
   );
 }
 
-function SentenceSpan({ text, bookId, chapterIndex, paragraphIndex, sentenceIndex, onLongPress }) {
+// isActive is now passed as prop from ChapterBlock (single subscription per chapter)
+function SentenceSpan({ text, bookId, chapterIndex, paragraphIndex, sentenceIndex, isActive, onLongPress }) {
   const timerRef = useRef(null);
   const movedRef = useRef(false);
   const spanRef = useRef(null);
 
-  const isActive = useIsTtsActive(chapterIndex, paragraphIndex, sentenceIndex);
   const isBookmarked = useIsBookmarked(bookId, chapterIndex, paragraphIndex, sentenceIndex);
 
   // Auto-scroll to active sentence during TTS playback
