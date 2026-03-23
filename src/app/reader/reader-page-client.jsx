@@ -376,6 +376,56 @@ export default function ReaderPageClient() {
     }, []),
   });
 
+  // MediaSession API — lock screen / notification controls for TTS
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || !book) return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: book.title || 'ReadFlow',
+      artist: book.author || '',
+      album: 'ReadFlow',
+    });
+  }, [book]);
+
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.playbackState = isPlaying && !isPaused ? 'playing' : isPaused ? 'paused' : 'none';
+  }, [isPlaying, isPaused]);
+
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+    const ms = navigator.mediaSession;
+    ms.setActionHandler('play', () => {
+      const { flatSentences: fs, sentenceMap: sm, playStartIndex: psi } = ttsContextRef.current;
+      if (isPaused) resume();
+      else if (fs.length > 0) playWithAutoAdvance(fs, psi, latestChapterRef.current, sm);
+    });
+    ms.setActionHandler('pause', () => { if (isPlaying) pause(); });
+    ms.setActionHandler('stop', () => stopTts());
+    ms.setActionHandler('previoustrack', () => {
+      if (!isPlaying && !isPaused) return;
+      const { flatSentences: fs, sentenceMap: sm } = ttsContextRef.current;
+      const prevIdx = Math.max(0, currentFlatIndex - 1);
+      stopTts();
+      if (fs.length > 0) playWithAutoAdvance(fs, prevIdx, latestChapterRef.current, sm);
+    });
+    ms.setActionHandler('nexttrack', () => {
+      if (!isPlaying && !isPaused) return;
+      const { flatSentences: fs, sentenceMap: sm } = ttsContextRef.current;
+      const nextIdx = Math.min(fs.length - 1, currentFlatIndex + 1);
+      stopTts();
+      if (fs.length > 0) playWithAutoAdvance(fs, nextIdx, latestChapterRef.current, sm);
+    });
+    return () => {
+      try {
+        ms.setActionHandler('play', null);
+        ms.setActionHandler('pause', null);
+        ms.setActionHandler('stop', null);
+        ms.setActionHandler('previoustrack', null);
+        ms.setActionHandler('nexttrack', null);
+      } catch { /* ignore */ }
+    };
+  }, [isPlaying, isPaused, currentFlatIndex, pause, resume, stopTts, playWithAutoAdvance]);
+
   // Flatten sentences and build coordinate map for TTS highlighting (memoized, before early returns)
   const currentChapter = loadedChapters.find((c) => c.chapterIndex === currentChapterIndex);
   const { flatSentences, sentenceMap } = useMemo(() => {

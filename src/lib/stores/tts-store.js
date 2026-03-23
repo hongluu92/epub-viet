@@ -24,6 +24,11 @@ export const useTtsStore = create((set) => ({
   ttsUnavailable: false,
   ttsUnavailableReason: null,
 
+  // Sleep timer (minutes remaining, null = off)
+  sleepTimerMinutes: null,
+  setSleepTimer: (minutes) => set({ sleepTimerMinutes: minutes }),
+  clearSleepTimer: () => set({ sleepTimerMinutes: null }),
+
   setPlaying: (isPlaying) => set({ isPlaying, isPaused: false, preparing: false, pausing: false }),
   setPaused: (isPaused) => set({ isPaused, pausing: false }),
   setPreparing: (preparing) => set({ preparing }),

@@ -1,7 +1,10 @@
 'use client';
 
+import { useState, useEffect, useRef } from 'react';
 import { useTtsStore } from '@/lib/stores/tts-store';
 import { useAppStore } from '@/lib/stores/app-store';
+
+const SLEEP_OPTIONS = [5, 15, 30, 60]; // minutes
 
 /**
  * Bottom TTS control bar matching mockup design.
@@ -19,8 +22,31 @@ export default function TtsBar({
   resume,
   stop,
 }) {
-  const { isPlaying, isPaused, modelLoading, modelProgress, preparing, pausing, currentFlatIndex, ttsUnavailable } = useTtsStore();
+  const { isPlaying, isPaused, modelLoading, modelProgress, preparing, pausing, currentFlatIndex, ttsUnavailable, sleepTimerMinutes, setSleepTimer, clearSleepTimer } = useTtsStore();
   const { ttsSpeed, setTtsSpeed } = useAppStore();
+  const [showSleepMenu, setShowSleepMenu] = useState(false);
+  const [sleepRemaining, setSleepRemaining] = useState(null); // seconds
+  const sleepEndRef = useRef(null);
+
+  // Sleep timer countdown
+  useEffect(() => {
+    if (sleepTimerMinutes == null) {
+      sleepEndRef.current = null;
+      setSleepRemaining(null);
+      return;
+    }
+    sleepEndRef.current = Date.now() + sleepTimerMinutes * 60000;
+    const tick = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((sleepEndRef.current - Date.now()) / 1000));
+      setSleepRemaining(remaining);
+      if (remaining <= 0) {
+        clearInterval(tick);
+        clearSleepTimer();
+        stop();
+      }
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [sleepTimerMinutes, clearSleepTimer, stop]);
 
   const totalSentences = sentences?.length || 0;
   const progress = totalSentences > 0 ? (currentFlatIndex / totalSentences) * 100 : 0;
@@ -192,6 +218,43 @@ export default function TtsBar({
       >
         {speedLabel}
       </button>
+
+      {/* Sleep Timer */}
+      <div className="relative">
+        <button
+          onClick={() => setShowSleepMenu(!showSleepMenu)}
+          className="text-xs font-semibold rounded-md"
+          style={{
+            color: sleepRemaining ? 'var(--accent)' : 'var(--text-secondary)',
+            background: 'rgba(0,0,0,0.05)',
+            padding: '4px 6px',
+          }}
+          aria-label="Hẹn giờ tắt"
+        >
+          {sleepRemaining
+            ? `${Math.floor(sleepRemaining / 60)}:${String(sleepRemaining % 60).padStart(2, '0')}`
+            : '🌙'}
+        </button>
+        {showSleepMenu && (
+          <div className="absolute bottom-full right-0 mb-2 rounded-xl shadow-lg p-2 min-w-[120px]"
+            style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
+            {SLEEP_OPTIONS.map((m) => (
+              <button key={m} onClick={() => { setSleepTimer(m); setShowSleepMenu(false); }}
+                className="block w-full text-left text-xs px-3 py-1.5 rounded-lg"
+                style={{ color: 'var(--text)' }}>
+                {m} phút
+              </button>
+            ))}
+            {sleepRemaining && (
+              <button onClick={() => { clearSleepTimer(); setShowSleepMenu(false); }}
+                className="block w-full text-left text-xs px-3 py-1.5 rounded-lg mt-1"
+                style={{ color: 'var(--accent)' }}>
+                Tắt hẹn giờ
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
     </div>
   );
