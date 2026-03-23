@@ -32,6 +32,30 @@ function SettingsRow({ label, children }) {
   );
 }
 
+function StatCard({ label, value }) {
+  return (
+    <div className="p-3 rounded-xl text-center" style={{ backgroundColor: 'var(--surface)' }}>
+      <p className="text-lg font-semibold" style={{ color: 'var(--text)' }}>{value}</p>
+      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{label}</p>
+    </div>
+  );
+}
+
+function ReadingStatsSection() {
+  const stats = useAppStore((s) => s.readingStats);
+  const hours = Math.floor((stats?.totalReadingMs || 0) / 3600000);
+  const minutes = Math.floor(((stats?.totalReadingMs || 0) % 3600000) / 60000);
+  const timeStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+
+  return (
+    <div className="mx-4 grid grid-cols-3 gap-3">
+      <StatCard label="Thời gian" value={timeStr} />
+      <StatCard label="Chương" value={stats?.chaptersCompleted || 0} />
+      <StatCard label="Chuỗi ngày" value={`${stats?.currentStreak || 0}`} />
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { theme, setTheme, fontSize, setFontSize, lineHeight, setLineHeight, ttsSpeed } = useAppStore();
   const books = useLibraryStore((s) => s.books);
@@ -46,17 +70,17 @@ export default function SettingsPage() {
       </h1>
 
       {/* Tai khoan */}
-      <SectionHeader title="Tai khoan" />
+      <SectionHeader title="Tài khoản" />
       <SettingsCard>
-        <SettingsRow label={user ? user.displayName : 'Tai khoan'}>
+        <SettingsRow label={user ? user.displayName : 'Tài khoản'}>
           {user ? <UserMenu /> : <LoginButton />}
         </SettingsRow>
       </SettingsCard>
 
       {/* Giao dien */}
-      <SectionHeader title="Giao dien" />
+      <SectionHeader title="Giao diện" />
       <SettingsCard>
-        <SettingsRow label="Chu de">
+        <SettingsRow label="Chủ đề">
           <div className="flex gap-2">
             {THEMES.map((t) => (
               <button
@@ -69,7 +93,7 @@ export default function SettingsPage() {
                   borderColor: theme === t ? 'var(--accent)' : 'var(--border)',
                 }}
               >
-                {t === 'light' ? 'Sang' : t === 'dark' ? 'Toi' : 'Sepia'}
+                {t === 'light' ? 'Sáng' : t === 'dark' ? 'Tối' : 'Sepia'}
               </button>
             ))}
           </div>
@@ -77,9 +101,9 @@ export default function SettingsPage() {
       </SettingsCard>
 
       {/* Doc sach */}
-      <SectionHeader title="Doc sach" />
+      <SectionHeader title="Đọc sách" />
       <SettingsCard>
-        <SettingsRow label={`Co chu: ${fontSize}px`}>
+        <SettingsRow label={`Cỡ chữ: ${fontSize}px`}>
           <input
             type="range" min={12} max={32} step={1}
             value={fontSize}
@@ -88,7 +112,7 @@ export default function SettingsPage() {
             style={{ accentColor: 'var(--accent)' }}
           />
         </SettingsRow>
-        <SettingsRow label={`Gian dong: ${lineHeight.toFixed(1)}`}>
+        <SettingsRow label={`Giãn dòng: ${lineHeight.toFixed(1)}`}>
           <input
             type="range" min={1.4} max={2.2} step={0.1}
             value={lineHeight}
@@ -102,24 +126,28 @@ export default function SettingsPage() {
       {/* TTS */}
       <SectionHeader title="TTS" />
       <SettingsCard>
-        <SettingsRow label="Toc do doc">
+        <SettingsRow label="Tốc độ đọc">
           <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{ttsSpeed}x</span>
         </SettingsRow>
       </SettingsCard>
 
-      {/* Luu tru */}
-      <SectionHeader title="Luu tru" />
+      {/* Thống kê đọc */}
+      <SectionHeader title="Thống kê" />
+      <ReadingStatsSection />
+
+      {/* Lưu trữ */}
+      <SectionHeader title="Lưu trữ" />
       <SettingsCard>
-        <SettingsRow label="Thu vien">
-          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{books.length} cuon sach</span>
+        <SettingsRow label="Thư viện">
+          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{books.length} cuốn sách</span>
         </SettingsRow>
       </SettingsCard>
 
       {/* Gioi thieu */}
-      <SectionHeader title="Gioi thieu" />
+      <SectionHeader title="Giới thiệu" />
       <SettingsCard>
         <SettingsRow label="ReadFlow v1.0">
-          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Doc truyen Viet Nam</span>
+          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Đọc truyện Việt Nam</span>
         </SettingsRow>
       </SettingsCard>
     </div>

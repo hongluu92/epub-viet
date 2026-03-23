@@ -10,6 +10,7 @@ import { useTts } from '@/hooks/use-tts';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { isWasmAvailable } from '@/lib/services/tts-model-loader';
 import { useTtsStore } from '@/lib/stores/tts-store';
+import { useAppStore } from '@/lib/stores/app-store';
 import ReaderHeader from '@/components/reader/reader-header';
 import ReadingProgressBar from '@/components/reader/reading-progress-bar';
 import SettingsDropdown from '@/components/reader/settings-dropdown';
@@ -192,6 +193,20 @@ export default function ReaderPageClient() {
       disposeTts();
     };
   }, [disposeTts, persistReadingPosition]);
+
+  // Track reading time — increment every 30s while page is visible
+  const updateReadingTime = useAppStore((s) => s.updateReadingTime);
+  const updateStreak = useAppStore((s) => s.updateStreak);
+  useEffect(() => {
+    const INTERVAL_MS = 30000;
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        updateReadingTime(INTERVAL_MS);
+        updateStreak();
+      }
+    }, INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [updateReadingTime, updateStreak]);
 
   // Load next chapter for infinite scroll — use ref to avoid re-creating on every append
   const loadedChaptersRef = useRef(loadedChapters);

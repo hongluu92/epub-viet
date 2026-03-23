@@ -107,6 +107,22 @@ body {
   border-left-color: #f06292;
 }
 
+/* ===== Colored Highlights ===== */
+.highlight-yellow { background-color: rgba(255, 235, 59, 0.3); border-radius: 2px; padding: 1px 2px; }
+.highlight-green  { background-color: rgba(76, 175, 80, 0.25); border-radius: 2px; padding: 1px 2px; }
+.highlight-blue   { background-color: rgba(33, 150, 243, 0.2); border-radius: 2px; padding: 1px 2px; }
+.highlight-red    { background-color: rgba(244, 67, 54, 0.2); border-radius: 2px; padding: 1px 2px; }
+
+[data-theme="dark"] .highlight-yellow { background-color: rgba(255, 235, 59, 0.15); }
+[data-theme="dark"] .highlight-green  { background-color: rgba(76, 175, 80, 0.15); }
+[data-theme="dark"] .highlight-blue   { background-color: rgba(33, 150, 243, 0.12); }
+[data-theme="dark"] .highlight-red    { background-color: rgba(244, 67, 54, 0.12); }
+
+[data-theme="sepia"] .highlight-yellow { background-color: rgba(255, 193, 7, 0.25); }
+[data-theme="sepia"] .highlight-green  { background-color: rgba(76, 175, 80, 0.2); }
+[data-theme="sepia"] .highlight-blue   { background-color: rgba(33, 150, 243, 0.18); }
+[data-theme="sepia"] .highlight-red    { background-color: rgba(244, 67, 54, 0.18); }
+
 /* ===== Scrollbar ===== */
 ::-webkit-scrollbar {
   width: 6px;
