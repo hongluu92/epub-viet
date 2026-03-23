@@ -4,13 +4,13 @@ import { memo } from 'react';
 import { useTtsStore } from '@/lib/stores/tts-store';
 import SentenceSpan from './sentence-span';
 
-// Single store subscription per chapter instead of per-sentence (reduces 200+ → 1)
+// Single store subscription per chapter instead of per-sentence (reduces 200+ → 1).
+// Returns primitive values to avoid new-object-per-render infinite loop.
 function useChapterActiveSentence(chapterIndex) {
-  return useTtsStore((s) =>
-    s.isPlaying && s.currentChapter === chapterIndex
-      ? { p: s.currentParagraph, s: s.currentSentence }
-      : null
-  );
+  const isActive = useTtsStore((s) => s.isPlaying && s.currentChapter === chapterIndex);
+  const activeParagraph = useTtsStore((s) => s.currentParagraph);
+  const activeSentence = useTtsStore((s) => s.currentSentence);
+  return isActive ? { p: activeParagraph, s: activeSentence } : null;
 }
 
 function ChapterBlock({ chapter, bookId, onLongPressSentence }) {
