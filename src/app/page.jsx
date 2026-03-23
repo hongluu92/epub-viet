@@ -190,70 +190,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* My Library section - horizontal scroll preview */}
-      <section className="mb-6">
-        <div className="flex items-center justify-between px-4 mb-3">
-          <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>
-            Tủ sách của tôi
-          </h2>
-          {(localBooks.length > 0 || cloudOnlyBooks.length > 0) && (
-            <Link href="/library" className="text-xs font-medium" style={{ color: 'var(--accent)' }}>
-              Xem thêm
-            </Link>
-          )}
-        </div>
-        {isLoading ? (
-          <BookShelfSkeleton count={3} />
-        ) : (localBooks.length > 0 || cloudOnlyBooks.length > 0) ? (
-          <div
-            className="flex gap-3 px-4 pb-2 overflow-x-auto flex-nowrap"
-            style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
-          >
-            {localBooks.map((book) => (
-              <BookCard key={book.id} book={book} onDelete={(b) => {
-                removeBook(b.id);
-                if (user?.uid) deleteBookFromCloud(user.uid, b.id);
-              }} />
-            ))}
-            {cloudOnlyBooks.map((book) => (
-              <BookCard
-                key={book.id}
-                book={book}
-                onClick={book.epubUrl ? handleDownloadAndRead : undefined}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="px-4 py-8 text-center">
-            <div className="text-4xl mb-3">📚</div>
-            <p className="text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>
-              Tủ sách trống
-            </p>
-            <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
-              Bắt đầu bằng cách tải sách từ Kho sách hoặc nhập file EPUB
-            </p>
-            <div className="flex gap-2 justify-center">
-              <button onClick={() => triggerUpload()}
-                className="text-xs px-3 py-1.5 rounded-lg font-medium"
-                style={{ backgroundColor: 'var(--accent)', color: 'white' }}>
-                Nhập EPUB
-              </button>
-              <button onClick={() => document.getElementById('browse-section')?.scrollIntoView({ behavior: 'smooth' })}
-                className="text-xs px-3 py-1.5 rounded-lg font-medium"
-                style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
-                Kho sách
-              </button>
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* Divider */}
-      <div className="px-4 mb-4">
-        <hr style={{ borderColor: 'var(--border, #333)' }} />
-      </div>
-
-      {/* Book Store section */}
+      {/* Book Store section — shown first as primary content */}
       <section id="browse-section" className="mb-6">
         <div className="flex items-center justify-between px-4 mb-3">
           <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>
@@ -344,6 +281,51 @@ export default function HomePage() {
               </>
             )}
           </>
+        )}
+      </section>
+
+      {/* Divider */}
+      <div className="px-4 mb-4">
+        <hr style={{ borderColor: 'var(--border, #333)' }} />
+      </div>
+
+      {/* My Library section */}
+      <section className="mb-6">
+        <div className="flex items-center justify-between px-4 mb-3">
+          <h2 className="text-base font-semibold" style={{ color: 'var(--text)' }}>
+            Truyện của tôi
+          </h2>
+          {(localBooks.length > 0 || cloudOnlyBooks.length > 0) && (
+            <Link href="/library" className="text-xs font-medium" style={{ color: 'var(--accent)' }}>
+              Xem thêm
+            </Link>
+          )}
+        </div>
+        {isLoading ? (
+          <BookShelfSkeleton count={3} />
+        ) : (localBooks.length > 0 || cloudOnlyBooks.length > 0) ? (
+          <div
+            className="flex gap-3 px-4 pb-2 overflow-x-auto flex-nowrap"
+            style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
+          >
+            {localBooks.map((book) => (
+              <BookCard key={book.id} book={book} onDelete={(b) => {
+                removeBook(b.id);
+                if (user?.uid) deleteBookFromCloud(user.uid, b.id);
+              }} />
+            ))}
+            {cloudOnlyBooks.map((book) => (
+              <BookCard
+                key={book.id}
+                book={book}
+                onClick={book.epubUrl ? handleDownloadAndRead : undefined}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="px-4 py-4 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
+            Chưa có truyện nào. Tải từ Kho sách hoặc nhập EPUB.
+          </p>
         )}
       </section>
 
