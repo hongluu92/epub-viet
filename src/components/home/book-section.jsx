@@ -15,7 +15,7 @@ export default function BookSection({ title, books, showViewAll = false, onDelet
         </h2>
         {showViewAll && (
           <button className="text-sm" style={{ color: 'var(--accent)' }}>
-            Xem tat ca
+            Xem tất cả
           </button>
         )}
       </div>

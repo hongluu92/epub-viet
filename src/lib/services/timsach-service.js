@@ -67,7 +67,7 @@ function parseBookList(html) {
     seen.add(id);
     const bookIndex = seen.size - 1;
     const coverUrl = imgMatches[bookIndex]?.[1] || null;
-    const author = authorMatches[bookIndex]?.[1] || 'Khong ro';
+    const author = authorMatches[bookIndex]?.[1] || 'Không rõ';
     books.push({ id, slug, title, author, coverUrl });
   }
   return books;

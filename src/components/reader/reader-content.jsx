@@ -158,7 +158,7 @@ export default function ReaderContent({
         {hasMore && (
           <div ref={sentinelRef} className="py-8 text-center">
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              Loading next chapter...
+              Đang tải chương tiếp...
             </p>
           </div>
         )}

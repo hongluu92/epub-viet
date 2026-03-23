@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Home, BookOpen, Bookmark, Settings } from 'lucide-react';
 
 const NAV_ITEMS = [
-  { label: 'Home', icon: Home, href: '/' },
+  { label: 'Trang chủ', icon: Home, href: '/' },
   { label: 'Tủ sách', icon: BookOpen, href: '/library' },
   { label: 'Dấu trang', icon: Bookmark, href: '/bookmarks' },
   { label: 'Cài đặt', icon: Settings, href: '/settings' },

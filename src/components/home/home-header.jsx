@@ -17,7 +17,7 @@ export default function HomeHeader({ onImport }) {
           onClick={onImport}
           className="w-9 h-9 flex items-center justify-center rounded-full transition-colors duration-200"
           style={{ backgroundColor: 'var(--accent)', color: '#fff' }}
-          aria-label="Import sach"
+          aria-label="Nhập sách"
         >
           <Plus size={20} />
         </button>

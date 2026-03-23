@@ -38,7 +38,7 @@ export default function LibraryPage() {
       router.push(`/reader?id=${metadata.id}`);
     } catch (err) {
       console.error('Download failed:', err);
-      setDownloadStatus({ title: book.title, message: 'Tải thất bại. Thử lại sau.' });
+      setDownloadStatus({ title: book.title, message: 'Tải thất bại. Kiểm tra kết nối mạng và thử lại.' });
       setTimeout(() => setDownloadStatus(null), 3000);
     } finally {
       setDownloadingId(null);

@@ -450,7 +450,7 @@ export default function ReaderPageClient() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
-        <p style={{ color: 'var(--text-muted)' }}>Loading...</p>
+        <p style={{ color: 'var(--text-muted)' }}>Đang tải...</p>
       </div>
     );
   }
