@@ -17,7 +17,7 @@
     "jszip": "^3.10.1",
     "lucide-react": "^0.577.0",
     "next": "^16.1.6",
-    "onnxruntime-web": "^1.24.3",
+    "onnxruntime-web": "^1.20.1",
     "piper-wasm": "^0.1.4",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
