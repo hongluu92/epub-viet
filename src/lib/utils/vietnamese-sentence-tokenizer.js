@@ -11,8 +11,10 @@
  *    so each item in the sentences array is short enough for fast TTS synthesis.
  */
 
-/** Sentences longer than this get split further on clause boundaries */
-const MAX_SENTENCE_CHARS = 80;
+/** Sentences longer than this get split further on clause boundaries.
+ * 200 chars accommodates most Vietnamese novel sentences without forced mid-phrase cuts.
+ * ONNX inference handles up to ~300 chars efficiently. */
+const MAX_SENTENCE_CHARS = 200;
 
 /**
  * Split a single long sentence on clause boundaries (, ; — :).
@@ -43,28 +45,9 @@ function splitLongSentence(sentence) {
   }
   if (buffer) result.push(buffer);
 
-  // If clause split didn't help (no punctuation), split by word boundary
-  const final = [];
-  for (const chunk of result) {
-    if (chunk.length <= MAX_SENTENCE_CHARS) {
-      final.push(chunk);
-      continue;
-    }
-    const words = chunk.split(' ');
-    let wordBuffer = '';
-    for (const word of words) {
-      if (!wordBuffer) { wordBuffer = word; continue; }
-      if ((wordBuffer + ' ' + word).length <= MAX_SENTENCE_CHARS) {
-        wordBuffer += ' ' + word;
-      } else {
-        final.push(wordBuffer);
-        wordBuffer = word;
-      }
-    }
-    if (wordBuffer) final.push(wordBuffer);
-  }
-
-  return final.filter(Boolean);
+  // Keep chunks as-is even if still long — avoid unnatural mid-phrase word splits.
+  // ONNX handles long sentences fine; forced word splits sound broken in TTS.
+  return result.filter(Boolean);
 }
 
 /**
