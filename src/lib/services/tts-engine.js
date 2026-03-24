@@ -76,7 +76,7 @@ export function getPlaybackTime() {
 }
 
 export { ensureAudioContext, startBackgroundKeepAlive, stopBackgroundKeepAlive };
-export { playBufferViaHtml, pauseHtmlAudio, resumeHtmlAudio, stopHtmlAudio };
+export { playBufferViaHtml, pauseHtmlAudio, resumeHtmlAudio, stopHtmlAudio, getHtmlAudioEl };
 
 /**
  * Synthesize text and return raw PCM Float32Array (for HTML audio playback path).

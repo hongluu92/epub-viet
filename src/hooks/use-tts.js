@@ -18,6 +18,7 @@ import {
   pauseHtmlAudio,
   resumeHtmlAudio,
   stopHtmlAudio,
+  getHtmlAudioEl,
   dispose as disposeEngine,
   startBackgroundKeepAlive,
   stopBackgroundKeepAlive,
@@ -260,40 +261,80 @@ export function useTts() {
     }
   }
 
-  // iOS: sequential playback via HTML <audio> element for background support.
-  // Web Audio API gets suspended by iOS in background; <audio> element doesn't.
+  // iOS: batch sentences into chunks, synthesize all PCMs, concatenate, play via HTML <audio>.
+  // Reduces the number of <audio>.play() calls → fewer gaps, smoother playback.
+  const IOS_BATCH_SIZE = 5;
+
   async function playLoopSequential(sentences, startIdx, chapterIdx, sentenceMap, runId, onComplete) {
-    for (let i = startIdx; i < sentences.length; i++) {
+    for (let batchStart = startIdx; batchStart < sentences.length; batchStart += IOS_BATCH_SIZE) {
       if (abortRef.current || runId !== playRunIdRef.current) break;
 
+      const batchEnd = Math.min(batchStart + IOS_BATCH_SIZE, sentences.length);
       const speed = useAppStore.getState().ttsSpeed;
-      const coords = sentenceMap[i] || { paragraphIndex: 0, sentenceIndex: i };
-      setPosition(chapterIdx, coords.paragraphIndex, coords.sentenceIndex, i);
 
-      const text = sentences[i]?.trim();
-      if (!text) continue;
+      // Update highlight to first sentence in batch
+      const coords = sentenceMap[batchStart] || { paragraphIndex: 0, sentenceIndex: batchStart };
+      setPosition(chapterIdx, coords.paragraphIndex, coords.sentenceIndex, batchStart);
 
-      // Synthesize to raw PCM, then play via HTML <audio> (background-safe)
-      let pcm;
-      try {
-        pcm = await withTimeout(
-          synthesizeRawPcm(text, speed),
-          SYNTHESIS_TIMEOUT_MS,
-          `Sentence ${i}`
-        );
-      } catch {
-        continue;
-      }
-      if (!pcm) continue;
-      if (abortRef.current || runId !== playRunIdRef.current) break;
+      // Synthesize all sentences in batch to raw PCM
+      const pcmChunks = [];
+      const sentenceOffsets = []; // track sample offset for each sentence (for highlighting)
+      let totalSamples = 0;
 
-      try {
-        await playBufferViaHtml(pcm);
-      } catch (err) {
+      for (let i = batchStart; i < batchEnd; i++) {
         if (abortRef.current || runId !== playRunIdRef.current) break;
-        console.warn(`[TTS-iOS] Playback error:`, err.message);
+        const text = sentences[i]?.trim();
+        if (!text) { pcmChunks.push(null); sentenceOffsets.push(totalSamples); continue; }
+
+        let pcm;
+        try {
+          pcm = await withTimeout(synthesizeRawPcm(text, speed), SYNTHESIS_TIMEOUT_MS, `S${i}`);
+        } catch { pcm = null; }
+
+        pcmChunks.push(pcm);
+        sentenceOffsets.push(totalSamples);
+        if (pcm) totalSamples += pcm.length;
       }
-      pcm = null;
+
+      if (abortRef.current || runId !== playRunIdRef.current) break;
+      if (totalSamples === 0) continue;
+
+      // Concatenate all PCM chunks into one Float32Array
+      const merged = new Float32Array(totalSamples);
+      let offset = 0;
+      for (const chunk of pcmChunks) {
+        if (chunk) { merged.set(chunk, offset); offset += chunk.length; }
+      }
+
+      // Play the merged audio via HTML <audio>
+      // While playing, update highlight based on estimated timing
+      const sampleRate = 22050;
+      const totalDurationMs = (totalSamples / sampleRate) * 1000;
+
+      // Start highlight updater
+      const highlightInterval = setInterval(() => {
+        const el = getHtmlAudioEl();
+        if (!el) return;
+        const currentTime = el.currentTime || 0;
+        const currentSample = currentTime * sampleRate;
+        // Find which sentence is currently playing
+        for (let j = sentenceOffsets.length - 1; j >= 0; j--) {
+          if (currentSample >= sentenceOffsets[j]) {
+            const idx = batchStart + j;
+            const c = sentenceMap[idx] || { paragraphIndex: 0, sentenceIndex: idx };
+            setPosition(chapterIdx, c.paragraphIndex, c.sentenceIndex, idx);
+            break;
+          }
+        }
+      }, 300);
+
+      try {
+        await playBufferViaHtml(merged);
+      } catch (err) {
+        if (abortRef.current || runId !== playRunIdRef.current) { clearInterval(highlightInterval); break; }
+        console.warn(`[TTS-iOS] Batch playback error:`, err.message);
+      }
+      clearInterval(highlightInterval);
     }
 
     if (!abortRef.current && runId === playRunIdRef.current) {

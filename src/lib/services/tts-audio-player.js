@@ -75,6 +75,9 @@ export function stopHtmlAudio() {
   }
 }
 
+/** Get reference to the HTML audio element (for currentTime tracking) */
+export function getHtmlAudioEl() { return htmlAudioEl; }
+
 export function startBackgroundKeepAlive() { /* no-op, html audio handles it */ }
 export function stopBackgroundKeepAlive() { stopHtmlAudio(); }
 
