@@ -12,10 +12,14 @@ import { inferAudio } from './tts-inference';
 import {
   createAudioBuffer,
   playBuffer,
+  playBufferViaHtml,
   scheduleBuffer,
   pause as pauseAudio,
   resume as resumeAudio,
   stop as stopAudio,
+  pauseHtmlAudio,
+  resumeHtmlAudio,
+  stopHtmlAudio,
   disposeAudio,
   getAudioContext,
   ensureAudioContext,
@@ -72,6 +76,17 @@ export function getPlaybackTime() {
 }
 
 export { ensureAudioContext, startBackgroundKeepAlive, stopBackgroundKeepAlive };
+export { playBufferViaHtml, pauseHtmlAudio, resumeHtmlAudio, stopHtmlAudio };
+
+/**
+ * Synthesize text and return raw PCM Float32Array (for HTML audio playback path).
+ */
+export async function synthesizeRawPcm(text, speed = 1.0) {
+  if (!text?.trim()) return null;
+  const phonemeIds = await textToPhonemeIds(text);
+  if (!phonemeIds?.length) return null;
+  return inferAudio(phonemeIds, speed);
+}
 export const pause = pauseAudio;
 export const resume = resumeAudio;
 export const stop = stopAudio;

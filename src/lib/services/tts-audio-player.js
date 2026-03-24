@@ -9,30 +9,74 @@ let audioContext = null;
 let currentSource = null;
 let gainNode = null;
 let activeSources = [];
-let keepAliveAudio = null;
+let htmlAudioEl = null;
 
 /**
- * Start a silent audio loop via HTML5 <audio> element.
- * iOS Safari suspends WebKit JS when backgrounded — a playing <audio>
- * element keeps the process alive so TTS can continue.
+ * Convert PCM Float32 samples to a WAV Blob for HTML5 <audio> playback.
+ * iOS Safari supports background playback via <audio> but NOT Web Audio API.
  */
-export function startBackgroundKeepAlive() {
-  if (keepAliveAudio) return;
-  const basePath = typeof process !== 'undefined' ? (process.env?.NEXT_PUBLIC_BASE_PATH || '') : '';
-  keepAliveAudio = new Audio(`${basePath}/silence.wav`);
-  keepAliveAudio.loop = true;
-  keepAliveAudio.volume = 0.01; // nearly silent
-  keepAliveAudio.play().catch(() => {}); // may fail without gesture, that's ok
+function pcmToWavBlob(pcmData, sampleRate) {
+  const numSamples = pcmData.length;
+  const buffer = new ArrayBuffer(44 + numSamples * 2);
+  const view = new DataView(buffer);
+  // WAV header
+  const writeStr = (offset, str) => { for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); };
+  writeStr(0, 'RIFF');
+  view.setUint32(4, 36 + numSamples * 2, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, 1, true); // mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeStr(36, 'data');
+  view.setUint32(40, numSamples * 2, true);
+  // Convert float32 [-1,1] to int16
+  for (let i = 0; i < numSamples; i++) {
+    const s = Math.max(-1, Math.min(1, pcmData[i]));
+    view.setInt16(44 + i * 2, s * 0x7FFF, true);
+  }
+  return new Blob([buffer], { type: 'audio/wav' });
 }
 
-/** Stop the background keep-alive audio */
-export function stopBackgroundKeepAlive() {
-  if (keepAliveAudio) {
-    keepAliveAudio.pause();
-    keepAliveAudio.src = '';
-    keepAliveAudio = null;
+/**
+ * Play PCM audio via HTML5 <audio> element — supports iOS background playback.
+ * Returns a promise that resolves when playback finishes.
+ */
+export function playBufferViaHtml(pcmData, sampleRate = SAMPLE_RATE) {
+  return new Promise((resolve) => {
+    const blob = pcmToWavBlob(pcmData, sampleRate);
+    const url = URL.createObjectURL(blob);
+    if (!htmlAudioEl) {
+      htmlAudioEl = new Audio();
+    }
+    htmlAudioEl.src = url;
+    htmlAudioEl.onended = () => { URL.revokeObjectURL(url); resolve(); };
+    htmlAudioEl.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+    htmlAudioEl.play().catch(() => resolve());
+  });
+}
+
+export function pauseHtmlAudio() {
+  if (htmlAudioEl) htmlAudioEl.pause();
+}
+
+export function resumeHtmlAudio() {
+  if (htmlAudioEl) htmlAudioEl.play().catch(() => {});
+}
+
+export function stopHtmlAudio() {
+  if (htmlAudioEl) {
+    htmlAudioEl.pause();
+    htmlAudioEl.src = '';
   }
 }
+
+export function startBackgroundKeepAlive() { /* no-op, html audio handles it */ }
+export function stopBackgroundKeepAlive() { stopHtmlAudio(); }
 
 /**
  * Get or create AudioContext (lazy, must be called after user gesture).

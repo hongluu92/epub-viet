@@ -7,12 +7,17 @@ import {
   initEngine,
   ensureAudioContext,
   synthesizeSentence,
+  synthesizeRawPcm,
   playSentence,
+  playBufferViaHtml,
   scheduleSentence,
   getPlaybackTime,
   pause as pauseEngine,
   resume as resumeEngine,
   stop as stopEngine,
+  pauseHtmlAudio,
+  resumeHtmlAudio,
+  stopHtmlAudio,
   dispose as disposeEngine,
   startBackgroundKeepAlive,
   stopBackgroundKeepAlive,
@@ -255,8 +260,8 @@ export function useTts() {
     }
   }
 
-  // iOS: sequential playback — synthesize → play → wait → next.
-  // No prefetch overlap, no gapless scheduling — simpler and more reliable on iOS.
+  // iOS: sequential playback via HTML <audio> element for background support.
+  // Web Audio API gets suspended by iOS in background; <audio> element doesn't.
   async function playLoopSequential(sentences, startIdx, chapterIdx, sentenceMap, runId, onComplete) {
     for (let i = startIdx; i < sentences.length; i++) {
       if (abortRef.current || runId !== playRunIdRef.current) break;
@@ -268,31 +273,27 @@ export function useTts() {
       const text = sentences[i]?.trim();
       if (!text) continue;
 
-      // Prefetch next sentence while synthesizing current
-      if (i + 1 < sentences.length) {
-        void getOrCreateBuffer(sentences, i + 1, speed, runId);
-      }
-
-      let buffer;
+      // Synthesize to raw PCM, then play via HTML <audio> (background-safe)
+      let pcm;
       try {
-        buffer = await withTimeout(
-          getOrCreateBuffer(sentences, i, speed, runId),
+        pcm = await withTimeout(
+          synthesizeRawPcm(text, speed),
           SYNTHESIS_TIMEOUT_MS,
           `Sentence ${i}`
         );
       } catch {
         continue;
       }
-      if (!buffer) continue;
+      if (!pcm) continue;
       if (abortRef.current || runId !== playRunIdRef.current) break;
 
       try {
-        await playSentence(buffer);
+        await playBufferViaHtml(pcm);
       } catch (err) {
         if (abortRef.current || runId !== playRunIdRef.current) break;
         console.warn(`[TTS-iOS] Playback error:`, err.message);
       }
-      buffer = null;
+      pcm = null;
     }
 
     if (!abortRef.current && runId === playRunIdRef.current) {
@@ -356,7 +357,8 @@ export function useTts() {
   const pauseTts = useCallback(async () => {
     setPausing(true);
     try {
-      pauseNative(); // no-op if not using native
+      pauseNative();
+      pauseHtmlAudio();
       await pauseEngine();
       setPaused(true);
     } finally {
@@ -366,6 +368,7 @@ export function useTts() {
 
   const resumeTts = useCallback(async () => {
     resumeNative();
+    resumeHtmlAudio();
     await resumeEngine();
     setPaused(false);
   }, [setPaused]);
@@ -374,6 +377,7 @@ export function useTts() {
     playRunIdRef.current += 1;
     abortRef.current = true;
     stopNative();
+    stopHtmlAudio();
     stopEngine();
     stopBackgroundKeepAlive();
     prefetchCache.current.clear();
