@@ -14,7 +14,8 @@
 <body>
   <h2>TTS iOS Debug</h2>
   <p id="info"></p>
-  <button onclick="testStep1()">1. Load ONNX Runtime</button>
+  <button onclick="testStep1()">1a. ONNX (CDN WASM)</button>
+  <button onclick="testStep1b()">1b. ONNX (Local WASM)</button>
   <button onclick="testStep2()">2. Load Model (URL)</button>
   <button onclick="testStep3()">3. Load Model (IndexedDB)</button>
   <button onclick="testStep4()">4. Short Inference (10 chars)</button>
@@ -52,12 +53,29 @@
   window.testStep1 = async () => {
     try {
       log('Loading onnxruntime-web...');
+      log(`  wasmPaths will be: ${BASE}/`);
+      const t0 = performance.now();
+      ort = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.3/+esm');
+      ort.env.wasm.numThreads = 1;
+      // Try CDN for WASM files instead of local (local .mjs may fail on iOS)
+      ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.3/dist/';
+      log(`✓ ONNX Runtime loaded in ${(performance.now()-t0).toFixed(0)}ms`, 'ok');
+      log(`  Memory: ${(performance.memory?.usedJSHeapSize/1024/1024||0).toFixed(1)}MB`);
+    } catch (e) {
+      log(`✗ ${e.message}`, 'err');
+    }
+  };
+
+  // Step 1b: Load with local WASM paths
+  window.testStep1b = async () => {
+    try {
+      log('Loading onnxruntime-web (local WASM)...');
       const t0 = performance.now();
       ort = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.3/+esm');
       ort.env.wasm.numThreads = 1;
       ort.env.wasm.wasmPaths = `${BASE}/`;
       log(`✓ ONNX Runtime loaded in ${(performance.now()-t0).toFixed(0)}ms`, 'ok');
-      log(`  Memory: ${(performance.memory?.usedJSHeapSize/1024/1024||0).toFixed(1)}MB`);
+      log(`  wasmPaths: ${BASE}/`);
     } catch (e) {
       log(`✗ ${e.message}`, 'err');
     }
