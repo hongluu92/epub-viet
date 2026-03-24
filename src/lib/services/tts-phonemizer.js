@@ -138,15 +138,25 @@ function textToPhonemeIdsFallback(text) {
   return ids.length > 2 ? ids : [];
 }
 
+// iOS detection — skip piper WASM worker to avoid double WASM memory pressure
+// (piper loads its own ONNX runtime + 17MB .data file inside worker)
+const isIOS = typeof navigator !== 'undefined' &&
+  (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
 /**
  * Convert text to phoneme IDs using Piper phonemizer (Vietnamese model config).
- * Falls back to character-level mapping if Piper phonemizer is unavailable.
+ * On iOS: uses lightweight character-level mapping to avoid 35MB+ WASM memory spike.
+ * On desktop/Android: uses full Piper phonemizer for better pronunciation.
  * @param {string} text
  * @returns {Promise<number[]>}
  */
 export async function textToPhonemeIds(text) {
   if (!text?.trim()) return [];
   if (typeof window === 'undefined') return textToPhonemeIdsFallback(text);
+
+  // iOS: skip piper WASM worker entirely — character fallback uses zero extra memory
+  if (isIOS) return textToPhonemeIdsFallback(text);
 
   try {
     let phonemeIds = [];
