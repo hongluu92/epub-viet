@@ -4,12 +4,13 @@
  * Phase 2 (on play): load from IndexedDB → create ONNX session
  */
 
-const MODEL_URL = 'https://3gpp.arrow-tech.vn/api/v1/static/nh.onnx';
+// Quantized model (18MB, uint8) hosted on GitHub Pages — 70% smaller than original float32
+const MODEL_URL = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/model/nh-quantized.onnx`;
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
 const MODEL_CONFIG_URL = `${BASE_PATH}/model/nh.onnx.json`;
 const DB_NAME = 'readflow-tts';
 const STORE_NAME = 'model';
-const MODEL_KEY = 'nh.onnx';
+const MODEL_KEY = 'nh-quantized.onnx';
 
 let onnxSession = null;
 
@@ -89,7 +90,7 @@ export async function downloadModel(onProgress) {
   if (!res.ok) throw new Error(`Failed to fetch model: ${res.status}`);
 
   const contentLength = res.headers.get('content-length');
-  const total = contentLength ? parseInt(contentLength, 10) : 63500000;
+  const total = contentLength ? parseInt(contentLength, 10) : 18500000;
   const reader = res.body.getReader();
   const chunks = [];
   let received = 0;
