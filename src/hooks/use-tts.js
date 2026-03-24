@@ -45,44 +45,6 @@ const estimateSentenceMs = (text, speed) => {
   return Math.round((chars * 55 + 180) / Math.max(0.5, speed || 1));
 };
 
-/**
- * Split a long sentence into smaller chunks for iOS ONNX inference.
- * VITS decoder memory scales with sentence length — 60 chars max on iOS.
- * Splits on clause punctuation first, then word boundaries as fallback.
- */
-const IOS_MAX_TTS_CHARS = 60;
-function splitForIOS(text) {
-  if (!IS_IOS || !text || text.length <= IOS_MAX_TTS_CHARS) return [text];
-  // Try clause boundaries first
-  const parts = text.split(/(?<=[,;:—])\s+/);
-  const result = [];
-  let buf = '';
-  for (const part of parts) {
-    if (!buf) { buf = part; continue; }
-    if ((buf + ' ' + part).length <= IOS_MAX_TTS_CHARS) {
-      buf += ' ' + part;
-    } else {
-      result.push(buf);
-      buf = part;
-    }
-  }
-  if (buf) result.push(buf);
-  // If any chunk still too long, split on word boundary
-  const final = [];
-  for (const chunk of result) {
-    if (chunk.length <= IOS_MAX_TTS_CHARS) { final.push(chunk); continue; }
-    const words = chunk.split(' ');
-    let wb = '';
-    for (const w of words) {
-      if (!wb) { wb = w; continue; }
-      if ((wb + ' ' + w).length <= IOS_MAX_TTS_CHARS) { wb += ' ' + w; }
-      else { final.push(wb); wb = w; }
-    }
-    if (wb) final.push(wb);
-  }
-  return final.filter(Boolean);
-}
-
 /** Wrap a promise with a timeout — rejects if takes too long */
 function withTimeout(promise, ms, label) {
   return Promise.race([
@@ -288,8 +250,8 @@ export function useTts() {
     }
   }
 
-  // iOS ONNX: sequential playback with sentence splitting for memory safety.
-  // Long sentences get split into 60-char chunks before ONNX inference.
+  // iOS: sequential playback — synthesize → play → wait → next.
+  // No prefetch overlap, no gapless scheduling — simpler and more reliable on iOS.
   async function playLoopSequential(sentences, startIdx, chapterIdx, sentenceMap, runId, onComplete) {
     for (let i = startIdx; i < sentences.length; i++) {
       if (abortRef.current || runId !== playRunIdRef.current) break;
@@ -298,34 +260,34 @@ export function useTts() {
       const coords = sentenceMap[i] || { paragraphIndex: 0, sentenceIndex: i };
       setPosition(chapterIdx, coords.paragraphIndex, coords.sentenceIndex, i);
 
-      // Split long sentences into iOS-safe chunks
-      const chunks = splitForIOS(sentences[i]);
+      const text = sentences[i]?.trim();
+      if (!text) continue;
 
-      for (const chunk of chunks) {
-        if (abortRef.current || runId !== playRunIdRef.current) break;
-        if (!chunk?.trim()) continue;
-
-        let buffer;
-        try {
-          buffer = await withTimeout(
-            synthesizeSentence(chunk, speed),
-            SYNTHESIS_TIMEOUT_MS,
-            `Chunk`
-          );
-        } catch {
-          continue;
-        }
-        if (!buffer) continue;
-        if (abortRef.current || runId !== playRunIdRef.current) break;
-
-        try {
-          await playSentence(buffer);
-        } catch (err) {
-          if (abortRef.current || runId !== playRunIdRef.current) break;
-          console.warn(`[TTS-iOS] Playback error:`, err.message);
-        }
-        buffer = null;
+      // Prefetch next sentence while synthesizing current
+      if (i + 1 < sentences.length) {
+        void getOrCreateBuffer(sentences, i + 1, speed, runId);
       }
+
+      let buffer;
+      try {
+        buffer = await withTimeout(
+          getOrCreateBuffer(sentences, i, speed, runId),
+          SYNTHESIS_TIMEOUT_MS,
+          `Sentence ${i}`
+        );
+      } catch {
+        continue;
+      }
+      if (!buffer) continue;
+      if (abortRef.current || runId !== playRunIdRef.current) break;
+
+      try {
+        await playSentence(buffer);
+      } catch (err) {
+        if (abortRef.current || runId !== playRunIdRef.current) break;
+        console.warn(`[TTS-iOS] Playback error:`, err.message);
+      }
+      buffer = null;
     }
 
     if (!abortRef.current && runId === playRunIdRef.current) {
