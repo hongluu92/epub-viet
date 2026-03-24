@@ -14,6 +14,8 @@ import {
   resume as resumeEngine,
   stop as stopEngine,
   dispose as disposeEngine,
+  startBackgroundKeepAlive,
+  stopBackgroundKeepAlive,
 } from '@/lib/services/tts-engine';
 import { isModelCached, downloadModel, isWasmAvailable } from '@/lib/services/tts-model-loader';
 import { speakNative, pauseNative, resumeNative, stopNative, isNativeSpeechAvailable } from '@/lib/services/tts-native-speech';
@@ -159,8 +161,9 @@ export function useTts() {
     prefetchInFlight.current.clear();
     setPreparing(true);
 
-    // Native Web Speech API path (iOS default) — no model needed
+    // Native Web Speech API path — no model needed
     if (shouldUseNative()) {
+      startBackgroundKeepAlive();
       setPlaying(true);
       await playLoopNative(sentences, startIdx, chapterIdx, sentenceMap, runId, onComplete);
       return;
@@ -213,6 +216,7 @@ export function useTts() {
       }
     }
 
+    startBackgroundKeepAlive();
     setPlaying(true);
 
     // iOS: sequential playback (simpler, more reliable)
@@ -244,6 +248,7 @@ export function useTts() {
     }
 
     if (!abortRef.current && runId === playRunIdRef.current) {
+      stopBackgroundKeepAlive();
       setPlaying(false);
       reset();
       onComplete?.({ reason: 'finished', chapterIdx });
@@ -291,6 +296,7 @@ export function useTts() {
     }
 
     if (!abortRef.current && runId === playRunIdRef.current) {
+      stopBackgroundKeepAlive();
       setPlaying(false);
       reset();
       onComplete?.({ reason: 'finished', chapterIdx });
@@ -340,6 +346,7 @@ export function useTts() {
     }
 
     if (!abortRef.current && runId === playRunIdRef.current) {
+      stopBackgroundKeepAlive();
       setPlaying(false);
       reset();
       onComplete?.({ reason: 'finished', chapterIdx });
@@ -368,6 +375,7 @@ export function useTts() {
     abortRef.current = true;
     stopNative();
     stopEngine();
+    stopBackgroundKeepAlive();
     prefetchCache.current.clear();
     prefetchInFlight.current.clear();
     setPreparing(false);

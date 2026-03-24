@@ -19,6 +19,8 @@ import {
   disposeAudio,
   getAudioContext,
   ensureAudioContext,
+  startBackgroundKeepAlive,
+  stopBackgroundKeepAlive,
 } from './tts-audio-player';
 
 /**
@@ -69,7 +71,7 @@ export function getPlaybackTime() {
   return getAudioContext().currentTime;
 }
 
-export { ensureAudioContext };
+export { ensureAudioContext, startBackgroundKeepAlive, stopBackgroundKeepAlive };
 export const pause = pauseAudio;
 export const resume = resumeAudio;
 export const stop = stopAudio;

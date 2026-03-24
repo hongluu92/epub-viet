@@ -9,6 +9,30 @@ let audioContext = null;
 let currentSource = null;
 let gainNode = null;
 let activeSources = [];
+let keepAliveAudio = null;
+
+/**
+ * Start a silent audio loop via HTML5 <audio> element.
+ * iOS Safari suspends WebKit JS when backgrounded — a playing <audio>
+ * element keeps the process alive so TTS can continue.
+ */
+export function startBackgroundKeepAlive() {
+  if (keepAliveAudio) return;
+  const basePath = typeof process !== 'undefined' ? (process.env?.NEXT_PUBLIC_BASE_PATH || '') : '';
+  keepAliveAudio = new Audio(`${basePath}/silence.wav`);
+  keepAliveAudio.loop = true;
+  keepAliveAudio.volume = 0.01; // nearly silent
+  keepAliveAudio.play().catch(() => {}); // may fail without gesture, that's ok
+}
+
+/** Stop the background keep-alive audio */
+export function stopBackgroundKeepAlive() {
+  if (keepAliveAudio) {
+    keepAliveAudio.pause();
+    keepAliveAudio.src = '';
+    keepAliveAudio = null;
+  }
+}
 
 /**
  * Get or create AudioContext (lazy, must be called after user gesture).
