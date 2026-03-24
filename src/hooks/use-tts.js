@@ -5,6 +5,7 @@ import { useTtsStore } from '@/lib/stores/tts-store';
 import { useAppStore } from '@/lib/stores/app-store';
 import {
   initEngine,
+  ensureAudioContext,
   synthesizeSentence,
   scheduleSentence,
   getPlaybackTime,
@@ -125,6 +126,11 @@ export function useTts() {
   const play = useCallback(async (sentences, startIdx = 0, chapterIdx = 0, sentenceMap = [], options = {}) => {
     const { onComplete } = options;
     if (!sentences?.length) return;
+
+    // CRITICAL: Unlock AudioContext within the user gesture (iOS Safari requirement).
+    // This MUST run before any await — iOS requires resume() in the same event loop tick.
+    await ensureAudioContext();
+
     playRunIdRef.current += 1;
     const runId = playRunIdRef.current;
     playSpeedRef.current = useAppStore.getState().ttsSpeed;
@@ -219,7 +225,7 @@ export function useTts() {
       // is in the future and audio starts gaplessly. Otherwise falls back to "now".
       const now = getPlaybackTime();
       const startAt = Math.max(nextStartTime, now);
-      const { endTime, promise } = scheduleSentence(buffer, startAt);
+      const { endTime, promise } = await scheduleSentence(buffer, startAt);
       nextStartTime = endTime;
       buffer = null; // Release reference for GC (iOS memory pressure)
 

@@ -18,6 +18,7 @@ import {
   stop as stopAudio,
   disposeAudio,
   getAudioContext,
+  ensureAudioContext,
 } from './tts-audio-player';
 
 /**
@@ -59,7 +60,7 @@ export async function playSentence(buffer) {
  * @param {number} startAt - AudioContext.currentTime value
  * @returns {{ endTime: number, promise: Promise<void> }}
  */
-export function scheduleSentence(buffer, startAt) {
+export async function scheduleSentence(buffer, startAt) {
   return scheduleBuffer(buffer, startAt);
 }
 
@@ -68,6 +69,7 @@ export function getPlaybackTime() {
   return getAudioContext().currentTime;
 }
 
+export { ensureAudioContext };
 export const pause = pauseAudio;
 export const resume = resumeAudio;
 export const stop = stopAudio;

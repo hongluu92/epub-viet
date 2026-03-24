@@ -10,23 +10,61 @@ let currentSource = null;
 let gainNode = null;
 let activeSources = [];
 
-/** Get or create AudioContext (lazy, must be called after user gesture) */
+/**
+ * Get or create AudioContext (lazy, must be called after user gesture).
+ * iOS Safari requires resume() during the user gesture — call ensureAudioContext() early.
+ */
 export function getAudioContext() {
   if (!audioContext) {
-    audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
+    // iOS Safari may not support custom sampleRate — use default and resample in createAudioBuffer
+    try {
+      audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
+    } catch {
+      audioContext = new AudioContext();
+    }
   }
   return audioContext;
 }
 
 /**
+ * Must be called synchronously inside a user tap/click handler on iOS Safari.
+ * Creates the AudioContext and resumes it within the gesture to unlock audio.
+ */
+export async function ensureAudioContext() {
+  const ctx = getAudioContext();
+  if (ctx.state === 'suspended' || ctx.state === 'interrupted') {
+    await ctx.resume();
+  }
+  return ctx;
+}
+
+/**
  * Create an AudioBuffer from raw PCM float32 data.
- * @param {Float32Array} pcmData - Raw audio samples
+ * Handles sample rate mismatch on iOS Safari (may use 44100/48000 instead of 22050).
+ * @param {Float32Array} pcmData - Raw audio samples at SAMPLE_RATE (22050)
  * @returns {AudioBuffer}
  */
 export function createAudioBuffer(pcmData) {
   const ctx = getAudioContext();
-  const buffer = ctx.createBuffer(1, pcmData.length, SAMPLE_RATE);
-  buffer.getChannelData(0).set(pcmData);
+  // If AudioContext matches model sample rate, use directly
+  if (ctx.sampleRate === SAMPLE_RATE) {
+    const buffer = ctx.createBuffer(1, pcmData.length, SAMPLE_RATE);
+    buffer.getChannelData(0).set(pcmData);
+    return buffer;
+  }
+  // Resample: iOS Safari often uses 48000 Hz — upsample from 22050
+  const ratio = ctx.sampleRate / SAMPLE_RATE;
+  const newLength = Math.round(pcmData.length * ratio);
+  const buffer = ctx.createBuffer(1, newLength, ctx.sampleRate);
+  const output = buffer.getChannelData(0);
+  for (let i = 0; i < newLength; i++) {
+    const srcIdx = i / ratio;
+    const idx = Math.floor(srcIdx);
+    const frac = srcIdx - idx;
+    const a = pcmData[idx] || 0;
+    const b = pcmData[Math.min(idx + 1, pcmData.length - 1)] || 0;
+    output[i] = a + frac * (b - a); // linear interpolation
+  }
   return buffer;
 }
 
@@ -82,8 +120,12 @@ export function playBuffer(audioBuffer, volume = 1.0) {
  * @param {number} volume - 0.0 to 1.0
  * @returns {{ endTime: number, promise: Promise<void> }}
  */
-export function scheduleBuffer(audioBuffer, startAt, volume = 1.0) {
+export async function scheduleBuffer(audioBuffer, startAt, volume = 1.0) {
   const ctx = getAudioContext();
+  // iOS Safari may suspend context between sentences — ensure it's running
+  if (ctx.state !== 'running') {
+    try { await ctx.resume(); } catch { /* ignore */ }
+  }
   const source = ctx.createBufferSource();
   source.buffer = audioBuffer;
 
