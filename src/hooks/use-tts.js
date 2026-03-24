@@ -7,6 +7,7 @@ import {
   initEngine,
   ensureAudioContext,
   synthesizeSentence,
+  playSentence,
   scheduleSentence,
   getPlaybackTime,
   pause as pauseEngine,
@@ -16,22 +17,38 @@ import {
 } from '@/lib/services/tts-engine';
 import { isModelCached, downloadModel, isWasmAvailable } from '@/lib/services/tts-model-loader';
 
-const PREFETCH_AHEAD = 2;
-const STARTUP_BUFFER_COUNT = 1;        // play after first sentence is ready
-const STARTUP_BUFFER_MAX_COUNT = 3;    // cap buffering to avoid long prepare wait
-const STARTUP_BUFFER_TARGET_MS = 2000; // 3s is enough headroom before stall risk
+// iOS detection — used to select simpler playback path
+const IS_IOS = typeof navigator !== 'undefined' &&
+  (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+const PREFETCH_AHEAD = IS_IOS ? 1 : 2; // Less prefetch on iOS to reduce memory
+const PREFETCH_CACHE_MAX = IS_IOS ? 2 : 3;
+const STARTUP_BUFFER_COUNT = 1;
+const STARTUP_BUFFER_MAX_COUNT = IS_IOS ? 1 : 3; // iOS: play after first sentence ready
+const STARTUP_BUFFER_TARGET_MS = IS_IOS ? 0 : 2000; // iOS: don't wait for buffer headroom
+const SYNTHESIS_TIMEOUT_MS = IS_IOS ? 8000 : 15000; // Timeout per sentence synthesis
+
 const estimateSentenceMs = (text, speed) => {
-  const normalized = (text || '').trim();
-  const chars = normalized.length;
+  const chars = (text || '').trim().length;
   if (!chars) return 0;
-  // Rough estimate for Vietnamese TTS duration to drive startup buffering.
-  const baseMs = chars * 55 + 180;
-  return Math.round(baseMs / Math.max(0.5, speed || 1));
+  return Math.round((chars * 55 + 180) / Math.max(0.5, speed || 1));
 };
 
+/** Wrap a promise with a timeout — rejects if takes too long */
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timeout (${ms}ms)`)), ms)
+    ),
+  ]);
+}
+
 /**
- * React hook for TTS playback with sentence queue and 2-sentence prefetch.
- * Wraps the TTS engine with state management via Zustand stores.
+ * React hook for TTS playback with sentence queue and prefetch.
+ * On iOS: uses sequential playBuffer() instead of gapless scheduling,
+ * reduced prefetch, and timeout protection for each inference call.
  */
 export function useTts() {
   const prefetchCache = useRef(new Map());
@@ -50,14 +67,12 @@ export function useTts() {
 
   const ttsSpeed = useAppStore((s) => s.ttsSpeed);
 
-  // Clear prefetch cache when speed changes while idle.
   useEffect(() => {
     if (isPlaying || preparing) return;
     prefetchCache.current.clear();
     prefetchInFlight.current.clear();
   }, [ttsSpeed, isPlaying, preparing]);
 
-  /** Load the ONNX model (call on first play) */
   const loadModel = useCallback(async () => {
     const state = useTtsStore.getState();
     if (state.modelLoaded || state.modelLoading) return;
@@ -72,9 +87,9 @@ export function useTts() {
     }
   }, [setModelLoading, setModelLoaded, setModelProgress]);
 
+  // Synthesize with timeout protection — prevents infinite hang on iOS
   const getOrCreateBuffer = useCallback(async (sentences, idx, speed, runId) => {
     const key = `${idx}-${speed}`;
-
     const cached = prefetchCache.current.get(key);
     if (cached) return cached;
 
@@ -83,19 +98,22 @@ export function useTts() {
 
     const task = (async () => {
       try {
-        const buffer = await synthesizeSentence(sentences[idx], speed);
+        const buffer = await withTimeout(
+          synthesizeSentence(sentences[idx], speed),
+          SYNTHESIS_TIMEOUT_MS,
+          `Sentence ${idx}`
+        );
         if (abortRef.current || runId !== playRunIdRef.current) return null;
         if (buffer) {
           prefetchCache.current.set(key, buffer);
-          // Evict oldest entries to cap memory on iOS Safari
-          while (prefetchCache.current.size > 3) {
+          while (prefetchCache.current.size > PREFETCH_CACHE_MAX) {
             const oldest = prefetchCache.current.keys().next().value;
             prefetchCache.current.delete(oldest);
           }
         }
         return buffer;
       } catch (err) {
-        console.error(`Synthesis failed for sentence ${idx}:`, err);
+        console.warn(`[TTS] Synthesis failed/timeout for sentence ${idx}:`, err.message);
         return null;
       } finally {
         prefetchInFlight.current.delete(key);
@@ -106,7 +124,6 @@ export function useTts() {
     return task;
   }, []);
 
-  /** Prefetch next sentences to ensure gapless playback */
   const prefetch = useCallback((sentences, startIdx, speed, runId) => {
     for (let i = startIdx; i < Math.min(startIdx + PREFETCH_AHEAD, sentences.length); i++) {
       if (abortRef.current || runId !== playRunIdRef.current) break;
@@ -116,19 +133,11 @@ export function useTts() {
     }
   }, [getOrCreateBuffer]);
 
-  /**
-   * Start playing from a specific position in the sentence list.
-   * @param {string[]} sentences - All sentences to play (flat array)
-   * @param {number} startIdx - Index to start from
-   * @param {number} chapterIdx - Current chapter index
-   * @param {Array<{paragraphIndex: number, sentenceIndex: number}>} sentenceMap - Maps flat index to 2D coordinates
-   */
   const play = useCallback(async (sentences, startIdx = 0, chapterIdx = 0, sentenceMap = [], options = {}) => {
     const { onComplete } = options;
     if (!sentences?.length) return;
 
-    // CRITICAL: Unlock AudioContext within the user gesture (iOS Safari requirement).
-    // This MUST run before any await — iOS requires resume() in the same event loop tick.
+    // CRITICAL: Unlock AudioContext within the user gesture (iOS Safari requirement)
     await ensureAudioContext();
 
     playRunIdRef.current += 1;
@@ -140,7 +149,7 @@ export function useTts() {
     prefetchInFlight.current.clear();
     setPreparing(true);
 
-    // Download model on first play if not cached (deferred from reader load)
+    // Download model on first play if not cached
     try {
       if (!isWasmAvailable()) {
         useTtsStore.getState().setTtsUnavailable('wasm-blocked');
@@ -169,8 +178,7 @@ export function useTts() {
       return;
     }
 
-    // Prepare first N sentences before starting playback to avoid
-    // short-sentence stalls at the beginning of a chapter/session.
+    // Startup buffering — prepare first sentence(s) before playback
     let startupBufferedCount = 0;
     let startupEstimatedMs = 0;
     const startupLimit = Math.min(sentences.length, startIdx + STARTUP_BUFFER_MAX_COUNT);
@@ -190,17 +198,66 @@ export function useTts() {
 
     setPlaying(true);
 
-    // Prime prefetch window before entering playback loop.
-    prefetch(sentences, startIdx, playSpeedRef.current, runId);
+    // iOS: sequential playback (simpler, more reliable)
+    // Desktop: gapless scheduling (precise timing, no gaps)
+    if (IS_IOS) {
+      await playLoopSequential(sentences, startIdx, chapterIdx, sentenceMap, runId, onComplete);
+    } else {
+      await playLoopGapless(sentences, startIdx, chapterIdx, sentenceMap, runId, onComplete);
+    }
+  }, [getOrCreateBuffer, prefetch, reset, setModelLoading, setModelProgress, setPlaying, setPosition, setPreparing, setModelLoaded]);
 
-    // Track scheduled end time for gapless audio scheduling.
-    // Web Audio API schedules at hardware level — eliminates JS event loop gaps.
+  // iOS: simple sequential playback — synthesize → play → wait → next
+  // No prefetch overlap, no gapless scheduling, no AudioContext timing tricks.
+  // Trades small gaps between sentences for 100% reliability on iOS.
+  async function playLoopSequential(sentences, startIdx, chapterIdx, sentenceMap, runId, onComplete) {
+    for (let i = startIdx; i < sentences.length; i++) {
+      if (abortRef.current || runId !== playRunIdRef.current) break;
+
+      const speed = useAppStore.getState().ttsSpeed;
+      const coords = sentenceMap[i] || { paragraphIndex: 0, sentenceIndex: i };
+      setPosition(chapterIdx, coords.paragraphIndex, coords.sentenceIndex, i);
+
+      // Synthesize current sentence with timeout
+      let buffer;
+      try {
+        buffer = await getOrCreateBuffer(sentences, i, speed, runId);
+      } catch {
+        continue; // Skip failed sentences
+      }
+      if (!buffer) continue;
+      if (abortRef.current || runId !== playRunIdRef.current) break;
+
+      // Start prefetching next sentence while this one plays
+      if (i + 1 < sentences.length) {
+        void getOrCreateBuffer(sentences, i + 1, speed, runId);
+      }
+
+      // Play and wait for completion (simple, no scheduling)
+      try {
+        await playSentence(buffer);
+      } catch (err) {
+        if (abortRef.current || runId !== playRunIdRef.current) break;
+        console.warn(`[TTS-iOS] Playback error sentence ${i}:`, err.message);
+      }
+      buffer = null;
+    }
+
+    if (!abortRef.current && runId === playRunIdRef.current) {
+      setPlaying(false);
+      reset();
+      onComplete?.({ reason: 'finished', chapterIdx });
+    }
+  }
+
+  // Desktop/Android: gapless scheduling — precise AudioContext timing
+  async function playLoopGapless(sentences, startIdx, chapterIdx, sentenceMap, runId, onComplete) {
+    prefetch(sentences, startIdx, playSpeedRef.current, runId);
     let nextStartTime = getPlaybackTime();
 
     for (let i = startIdx; i < sentences.length; i++) {
       if (abortRef.current || runId !== playRunIdRef.current) break;
 
-      // Re-read speed from store each sentence so mid-playback changes apply
       const speed = useAppStore.getState().ttsSpeed;
       if (speed !== playSpeedRef.current) {
         prefetchCache.current.clear();
@@ -209,11 +266,9 @@ export function useTts() {
         nextStartTime = getPlaybackTime();
       }
 
-      // Use coordinate map to set correct paragraph/sentence for highlighting
       const coords = sentenceMap[i] || { paragraphIndex: 0, sentenceIndex: i };
       setPosition(chapterIdx, coords.paragraphIndex, coords.sentenceIndex, i);
 
-      // Get or synthesize current sentence (skip empty)
       const cacheKey = `${i}-${speed}`;
       let buffer = await getOrCreateBuffer(sentences, i, speed, runId);
       prefetchCache.current.delete(cacheKey);
@@ -221,18 +276,14 @@ export function useTts() {
       if (!buffer) continue;
       if (abortRef.current || runId !== playRunIdRef.current) break;
 
-      // Schedule at precise time — if prefetch was fast enough, nextStartTime
-      // is in the future and audio starts gaplessly. Otherwise falls back to "now".
       const now = getPlaybackTime();
       const startAt = Math.max(nextStartTime, now);
       const { endTime, promise } = await scheduleSentence(buffer, startAt);
       nextStartTime = endTime;
-      buffer = null; // Release reference for GC (iOS memory pressure)
+      buffer = null;
 
-      // Prefetch next sentences NOW — while current sentence plays, next ones synthesize
       prefetch(sentences, i + 1, speed, runId);
 
-      // Wait for this sentence to end (for UI highlight sync)
       try {
         await promise;
       } catch (err) {
@@ -246,7 +297,7 @@ export function useTts() {
       reset();
       onComplete?.({ reason: 'finished', chapterIdx });
     }
-  }, [getOrCreateBuffer, prefetch, reset, setModelLoading, setModelProgress, setPlaying, setPosition, setPreparing]);
+  }
 
   const pauseTts = useCallback(async () => {
     setPausing(true);
@@ -281,8 +332,7 @@ export function useTts() {
     warmupPromiseRef.current = (async () => {
       try {
         await initEngine((progress) => setModelProgress(progress));
-        // Warm phonemizer + inference path to reduce first-play stall.
-        await synthesizeSentence('xin chao', useAppStore.getState().ttsSpeed);
+        await synthesizeSentence('xin chào', useAppStore.getState().ttsSpeed);
       } catch (err) {
         console.warn('[TTS] Warmup skipped:', err);
       }
