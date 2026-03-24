@@ -16,13 +16,23 @@ import {
   dispose as disposeEngine,
 } from '@/lib/services/tts-engine';
 import { isModelCached, downloadModel, isWasmAvailable } from '@/lib/services/tts-model-loader';
+import { speakNative, pauseNative, resumeNative, stopNative, isNativeSpeechAvailable } from '@/lib/services/tts-native-speech';
 
 // iOS detection — used to select simpler playback path
 const IS_IOS = typeof navigator !== 'undefined' &&
   (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 
-const PREFETCH_AHEAD = IS_IOS ? 1 : 2; // Less prefetch on iOS to reduce memory
+/** Determine if we should use native Web Speech API instead of ONNX */
+function shouldUseNative() {
+  const engine = useAppStore.getState().ttsEngine;
+  if (engine === 'native') return true;
+  if (engine === 'onnx') return false;
+  // 'auto': native on iOS (ONNX crashes), ONNX on desktop
+  return IS_IOS && isNativeSpeechAvailable();
+}
+
+const PREFETCH_AHEAD = IS_IOS ? 1 : 2;
 const PREFETCH_CACHE_MAX = IS_IOS ? 2 : 3;
 const STARTUP_BUFFER_COUNT = 1;
 const STARTUP_BUFFER_MAX_COUNT = IS_IOS ? 1 : 3; // iOS: play after first sentence ready
@@ -149,7 +159,14 @@ export function useTts() {
     prefetchInFlight.current.clear();
     setPreparing(true);
 
-    // Download model on first play if not cached
+    // Native Web Speech API path (iOS default) — no model needed
+    if (shouldUseNative()) {
+      setPlaying(true);
+      await playLoopNative(sentences, startIdx, chapterIdx, sentenceMap, runId, onComplete);
+      return;
+    }
+
+    // ONNX path: download model on first play if not cached
     try {
       if (!isWasmAvailable()) {
         useTtsStore.getState().setTtsUnavailable('wasm-blocked');
@@ -207,9 +224,33 @@ export function useTts() {
     }
   }, [getOrCreateBuffer, prefetch, reset, setModelLoading, setModelProgress, setPlaying, setPosition, setPreparing, setModelLoaded]);
 
-  // iOS: simple sequential playback — synthesize → play → wait → next
-  // No prefetch overlap, no gapless scheduling, no AudioContext timing tricks.
-  // Trades small gaps between sentences for 100% reliability on iOS.
+  // Native Web Speech API playback — zero model loading, uses iOS built-in Vietnamese voice
+  async function playLoopNative(sentences, startIdx, chapterIdx, sentenceMap, runId, onComplete) {
+    for (let i = startIdx; i < sentences.length; i++) {
+      if (abortRef.current || runId !== playRunIdRef.current) break;
+
+      const speed = useAppStore.getState().ttsSpeed;
+      const coords = sentenceMap[i] || { paragraphIndex: 0, sentenceIndex: i };
+      setPosition(chapterIdx, coords.paragraphIndex, coords.sentenceIndex, i);
+
+      const text = sentences[i]?.trim();
+      if (!text) continue;
+
+      try {
+        await speakNative(text, speed);
+      } catch {
+        // Skip failed sentences
+      }
+    }
+
+    if (!abortRef.current && runId === playRunIdRef.current) {
+      setPlaying(false);
+      reset();
+      onComplete?.({ reason: 'finished', chapterIdx });
+    }
+  }
+
+  // iOS ONNX fallback: simple sequential playback (if user forces ONNX engine)
   async function playLoopSequential(sentences, startIdx, chapterIdx, sentenceMap, runId, onComplete) {
     for (let i = startIdx; i < sentences.length; i++) {
       if (abortRef.current || runId !== playRunIdRef.current) break;
@@ -302,6 +343,7 @@ export function useTts() {
   const pauseTts = useCallback(async () => {
     setPausing(true);
     try {
+      pauseNative(); // no-op if not using native
       await pauseEngine();
       setPaused(true);
     } finally {
@@ -310,6 +352,7 @@ export function useTts() {
   }, [setPaused, setPausing]);
 
   const resumeTts = useCallback(async () => {
+    resumeNative();
     await resumeEngine();
     setPaused(false);
   }, [setPaused]);
@@ -317,6 +360,7 @@ export function useTts() {
   const stopTts = useCallback(() => {
     playRunIdRef.current += 1;
     abortRef.current = true;
+    stopNative();
     stopEngine();
     prefetchCache.current.clear();
     prefetchInFlight.current.clear();

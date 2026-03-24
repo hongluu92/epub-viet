@@ -57,7 +57,7 @@ function ReadingStatsSection() {
 }
 
 export default function SettingsPage() {
-  const { theme, setTheme, fontSize, setFontSize, lineHeight, setLineHeight, ttsSpeed } = useAppStore();
+  const { theme, setTheme, fontSize, setFontSize, lineHeight, setLineHeight, ttsSpeed, ttsEngine, setTtsEngine } = useAppStore();
   const books = useLibraryStore((s) => s.books);
   const { user } = useAuth();
 
@@ -124,12 +124,39 @@ export default function SettingsPage() {
       </SettingsCard>
 
       {/* TTS */}
-      <SectionHeader title="TTS" />
+      <SectionHeader title="Đọc văn bản" />
       <SettingsCard>
         <SettingsRow label="Tốc độ đọc">
           <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{ttsSpeed}x</span>
         </SettingsRow>
+        <SettingsRow label="Giọng đọc">
+          <div className="flex gap-1.5">
+            {[
+              { key: 'auto', label: 'Tự động' },
+              { key: 'native', label: 'Hệ thống' },
+              { key: 'onnx', label: 'Piper AI' },
+            ].map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setTtsEngine(key)}
+                className="px-2 py-1 rounded-full text-[11px] font-medium border transition-colors"
+                style={{
+                  backgroundColor: ttsEngine === key ? 'var(--accent)' : 'transparent',
+                  color: ttsEngine === key ? '#fff' : 'var(--text-secondary)',
+                  borderColor: ttsEngine === key ? 'var(--accent)' : 'var(--border)',
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </SettingsRow>
       </SettingsCard>
+      {ttsEngine === 'auto' && (
+        <p className="text-[10px] px-4 mt-1" style={{ color: 'var(--text-muted)' }}>
+          Tự động: Hệ thống trên iOS, Piper AI trên máy tính
+        </p>
+      )}
 
       {/* Thống kê đọc */}
       <SectionHeader title="Thống kê" />

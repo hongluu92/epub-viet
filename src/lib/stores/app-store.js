@@ -30,6 +30,10 @@ export const useAppStore = create(
       ttsSpeed: 1.0,
       setTtsSpeed: (ttsSpeed) => set({ ttsSpeed }),
 
+      // TTS engine: 'auto' (ONNX on desktop, native on iOS) | 'onnx' | 'native'
+      ttsEngine: 'auto',
+      setTtsEngine: (ttsEngine) => set({ ttsEngine }),
+
       // First-time welcome hint
       hasSeenWelcome: false,
       setHasSeenWelcome: () => set({ hasSeenWelcome: true }),
