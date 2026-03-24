@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TTS Debug - iOS</title>
+  <style>
+    body { font-family: system-ui; max-width: 600px; margin: 20px auto; padding: 0 16px; }
+    button { padding: 12px 20px; margin: 4px; font-size: 16px; border-radius: 8px; border: 1px solid #ccc; }
+    #log { white-space: pre-wrap; font-size: 12px; background: #f5f5f5; padding: 12px; border-radius: 8px; max-height: 400px; overflow-y: auto; margin-top: 16px; }
+    .ok { color: green; } .err { color: red; } .warn { color: orange; }
+  </style>
+</head>
+<body>
+  <h2>TTS iOS Debug</h2>
+  <p id="info"></p>
+  <button onclick="testStep1()">1. Load ONNX Runtime</button>
+  <button onclick="testStep2()">2. Load Model (URL)</button>
+  <button onclick="testStep3()">3. Load Model (IndexedDB)</button>
+  <button onclick="testStep4()">4. Short Inference (10 chars)</button>
+  <button onclick="testStep5()">5. Medium Inference (60 chars)</button>
+  <button onclick="testStep6()">6. Play Audio</button>
+  <button onclick="testStep7()">7. Full Pipeline</button>
+  <button onclick="clearLog()">Clear Log</button>
+  <div id="log"></div>
+
+<script type="module">
+  const BASE = '/epub-viet';
+  const MODEL_URL = `${BASE}/model/nh-quantized.onnx`;
+  const CONFIG_URL = `${BASE}/model/nh.onnx.json`;
+  const logEl = document.getElementById('log');
+  const infoEl = document.getElementById('info');
+
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  infoEl.textContent = `iOS: ${isIOS} | UA: ${navigator.userAgent.slice(0, 80)}`;
+
+  let ort = null;
+  let session = null;
+  let audioCtx = null;
+  let modelBytes = null;
+
+  function log(msg, cls = '') {
+    const line = document.createElement('div');
+    line.className = cls;
+    line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  window.clearLog = () => { logEl.innerHTML = ''; };
+
+  // Step 1: Load ONNX Runtime
+  window.testStep1 = async () => {
+    try {
+      log('Loading onnxruntime-web...');
+      const t0 = performance.now();
+      ort = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.3/+esm');
+      ort.env.wasm.numThreads = 1;
+      ort.env.wasm.wasmPaths = `${BASE}/`;
+      log(`✓ ONNX Runtime loaded in ${(performance.now()-t0).toFixed(0)}ms`, 'ok');
+      log(`  Memory: ${(performance.memory?.usedJSHeapSize/1024/1024||0).toFixed(1)}MB`);
+    } catch (e) {
+      log(`✗ ${e.message}`, 'err');
+    }
+  };
+
+  // Step 2: Load model directly from URL (no IndexedDB)
+  window.testStep2 = async () => {
+    try {
+      if (!ort) { log('Run step 1 first', 'warn'); return; }
+      log(`Fetching model from ${MODEL_URL}...`);
+      const t0 = performance.now();
+      const res = await fetch(MODEL_URL);
+      const buf = await res.arrayBuffer();
+      modelBytes = new Uint8Array(buf);
+      log(`✓ Downloaded ${(modelBytes.length/1024/1024).toFixed(1)}MB in ${(performance.now()-t0).toFixed(0)}ms`, 'ok');
+
+      log('Creating ONNX session from URL bytes...');
+      const t1 = performance.now();
+      session = await ort.InferenceSession.create(modelBytes, {
+        executionProviders: ['wasm'],
+      });
+      log(`✓ Session created in ${(performance.now()-t1).toFixed(0)}ms`, 'ok');
+      modelBytes = null; // release
+    } catch (e) {
+      log(`✗ ${e.message}`, 'err');
+    }
+  };
+
+  // Step 3: Load from IndexedDB (our current flow)
+  window.testStep3 = async () => {
+    try {
+      if (!ort) { log('Run step 1 first', 'warn'); return; }
+      log('Opening IndexedDB readflow-tts...');
+      const db = await new Promise((res, rej) => {
+        const req = indexedDB.open('readflow-tts', 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('model');
+        req.onsuccess = () => res(req.result);
+        req.onerror = () => rej(req.error);
+      });
+      log('Reading model from IndexedDB...');
+      const t0 = performance.now();
+      const buf = await new Promise((res, rej) => {
+        const tx = db.transaction('model', 'readonly');
+        const req = tx.objectStore('model').get('nh-quantized.onnx');
+        req.onsuccess = () => res(req.result);
+        req.onerror = () => rej(req.error);
+      });
+      db.close();
+      if (!buf) { log('✗ Model not in IndexedDB. Run step 2 first or download via app.', 'err'); return; }
+      let bytes = buf instanceof ArrayBuffer ? new Uint8Array(buf) : buf;
+      log(`✓ Read ${(bytes.length/1024/1024).toFixed(1)}MB from IDB in ${(performance.now()-t0).toFixed(0)}ms`, 'ok');
+
+      log('Creating ONNX session from IDB bytes...');
+      const t1 = performance.now();
+      session = await ort.InferenceSession.create(bytes, {
+        executionProviders: ['wasm'],
+      });
+      bytes = null;
+      log(`✓ Session created in ${(performance.now()-t1).toFixed(0)}ms`, 'ok');
+    } catch (e) {
+      log(`✗ ${e.message}`, 'err');
+    }
+  };
+
+  // Step 4: Short inference
+  window.testStep4 = async () => {
+    if (!session) { log('Run step 2 or 3 first', 'warn'); return; }
+    try {
+      // Simple phoneme IDs for "xin chào" (approximate)
+      const ids = [0, 1, 87, 62, 70, 0, 3, 0, 37, 55, 30, 72, 0, 1];
+      log(`Running inference (${ids.length} phonemes)...`);
+      const t0 = performance.now();
+      const inputIds = new BigInt64Array(ids.map(BigInt));
+      const inputLengths = new BigInt64Array([BigInt(ids.length)]);
+      const scales = new Float32Array([0.667, 1.0, 0.8]);
+      const feeds = {
+        input: new ort.Tensor('int64', inputIds, [1, ids.length]),
+        input_lengths: new ort.Tensor('int64', inputLengths, [1]),
+        scales: new ort.Tensor('float32', scales, [3]),
+      };
+      const results = await session.run(feeds);
+      const audio = results.output?.data;
+      log(`✓ Inference done in ${(performance.now()-t0).toFixed(0)}ms, ${audio?.length || 0} samples`, 'ok');
+    } catch (e) {
+      log(`✗ ${e.message}`, 'err');
+    }
+  };
+
+  // Step 5: Medium inference (longer text)
+  window.testStep5 = async () => {
+    if (!session) { log('Run step 2 or 3 first', 'warn'); return; }
+    try {
+      // Longer phoneme sequence (~60 chars worth)
+      const base = [0, 1, 87, 62, 70, 0, 3, 0, 37, 55, 30, 72, 0];
+      const ids = [];
+      for (let i = 0; i < 5; i++) ids.push(...base);
+      ids.push(1);
+      log(`Running medium inference (${ids.length} phonemes)...`);
+      const t0 = performance.now();
+      const inputIds = new BigInt64Array(ids.map(BigInt));
+      const inputLengths = new BigInt64Array([BigInt(ids.length)]);
+      const scales = new Float32Array([0.667, 1.0, 0.8]);
+      const feeds = {
+        input: new ort.Tensor('int64', inputIds, [1, ids.length]),
+        input_lengths: new ort.Tensor('int64', inputLengths, [1]),
+        scales: new ort.Tensor('float32', scales, [3]),
+      };
+      const results = await session.run(feeds);
+      const audio = results.output?.data;
+      log(`✓ Inference done in ${(performance.now()-t0).toFixed(0)}ms, ${audio?.length || 0} samples`, 'ok');
+    } catch (e) {
+      log(`✗ ${e.message}`, 'err');
+    }
+  };
+
+  // Step 6: Play audio
+  window.testStep6 = async () => {
+    if (!session) { log('Run step 2 or 3 first', 'warn'); return; }
+    try {
+      const ids = [0, 1, 87, 62, 70, 0, 3, 0, 37, 55, 30, 72, 0, 1];
+      log('Synthesizing + playing...');
+      const inputIds = new BigInt64Array(ids.map(BigInt));
+      const inputLengths = new BigInt64Array([BigInt(ids.length)]);
+      const scales = new Float32Array([0.667, 1.0, 0.8]);
+      const feeds = {
+        input: new ort.Tensor('int64', inputIds, [1, ids.length]),
+        input_lengths: new ort.Tensor('int64', inputLengths, [1]),
+        scales: new ort.Tensor('float32', scales, [3]),
+      };
+      const results = await session.run(feeds);
+      const pcm = new Float32Array(results.output.data);
+
+      if (!audioCtx) audioCtx = new AudioContext();
+      if (audioCtx.state !== 'running') await audioCtx.resume();
+
+      const rate = 22050;
+      const ctxRate = audioCtx.sampleRate;
+      let buffer;
+      if (ctxRate === rate) {
+        buffer = audioCtx.createBuffer(1, pcm.length, rate);
+        buffer.getChannelData(0).set(pcm);
+      } else {
+        const ratio = ctxRate / rate;
+        const newLen = Math.round(pcm.length * ratio);
+        buffer = audioCtx.createBuffer(1, newLen, ctxRate);
+        const out = buffer.getChannelData(0);
+        for (let i = 0; i < newLen; i++) {
+          const s = i / ratio;
+          const idx = Math.floor(s);
+          const frac = s - idx;
+          out[i] = (pcm[idx]||0) + frac * ((pcm[Math.min(idx+1,pcm.length-1)]||0) - (pcm[idx]||0));
+        }
+      }
+      const src = audioCtx.createBufferSource();
+      src.buffer = buffer;
+      src.connect(audioCtx.destination);
+      src.start(0);
+      log(`✓ Playing ${(buffer.duration).toFixed(2)}s audio (${ctxRate}Hz)`, 'ok');
+    } catch (e) {
+      log(`✗ ${e.message}`, 'err');
+    }
+  };
+
+  // Step 7: Full pipeline (load + infer + play) in sequence
+  window.testStep7 = async () => {
+    await testStep1();
+    await testStep2();
+    await testStep4();
+    await testStep6();
+    log('=== Full pipeline complete ===', 'ok');
+  };
+</script>
+</body>
+</html>
