@@ -102,20 +102,21 @@ export async function downloadModel(onProgress) {
     onProgress?.(Math.round((received / total) * 90));
   }
 
-  // Merge chunks into single buffer
+  // Merge chunks into single buffer, then release chunk refs immediately
   const merged = new Uint8Array(received);
   let offset = 0;
-  for (const chunk of chunks) {
-    merged.set(chunk, offset);
-    offset += chunk.length;
+  for (let i = 0; i < chunks.length; i++) {
+    merged.set(chunks[i], offset);
+    offset += chunks[i].length;
+    chunks[i] = null; // release each chunk as we copy
   }
-  chunks.length = 0; // release chunk refs
+  chunks.length = 0;
 
-  // Save to IndexedDB
+  // Save to IndexedDB, then release merged buffer
   await saveToDB(db, merged.buffer);
   db.close();
   onProgress?.(100);
-  // merged and buffer go out of scope → GC can reclaim ~60MB
+  // merged goes out of scope → GC can reclaim ~60MB
 }
 
 // --- Phase 2: Load from IndexedDB (called on play) ---
@@ -125,6 +126,9 @@ export async function downloadModel(onProgress) {
  * Should only be called after downloadModel() has completed.
  * @param {(progress: number) => void} onProgress - 0-100 progress callback
  */
+// Yield to main thread to prevent UI freeze during heavy memory operations
+const yieldToMain = () => new Promise((r) => setTimeout(r, 0));
+
 export async function loadModel(onProgress) {
   if (onnxSession) return onnxSession;
   if (!isWasmAvailable()) {
@@ -132,36 +136,54 @@ export async function loadModel(onProgress) {
   }
 
   const ort = await import('onnxruntime-web');
-  // Multi-threading requires crossOriginIsolated (COOP/COEP headers).
-  // Without it, ONNX warns and falls back to 1 thread anyway — set explicitly to suppress noise.
+  // Force single-thread on mobile to reduce WASM memory overhead.
+  // Multi-threading requires COOP/COEP headers + doubles memory for SharedArrayBuffer.
+  const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
   const canMultiThread =
-    typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated;
+    !isMobile && typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated;
   const threadCount =
-    canMultiThread && typeof navigator !== 'undefined' && navigator.hardwareConcurrency
+    canMultiThread && navigator.hardwareConcurrency
       ? Math.min(4, Math.max(1, navigator.hardwareConcurrency))
       : 1;
   ort.env.wasm.numThreads = threadCount;
   ort.env.wasm.wasmPaths = `${BASE_PATH}/`;
-  onProgress?.(30);
+  onProgress?.(20);
 
-  // Read from IndexedDB
+  // Yield before heavy IndexedDB read to keep UI responsive
+  await yieldToMain();
+
+  // Read from IndexedDB as Uint8Array (not ArrayBuffer) for explicit GC control
   const db = await openDB();
-  const buffer = await getFromDB(db);
+  let buffer = await getFromDB(db);
   db.close();
 
   if (!buffer) {
     throw new Error('Model not found in IndexedDB. Call downloadModel() first.');
   }
-  onProgress?.(50);
+  // Wrap in Uint8Array if raw ArrayBuffer (IndexedDB may return either)
+  let modelBytes = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : buffer;
+  buffer = null; // Release original reference for GC
+  onProgress?.(40);
 
-  // Create ONNX session
+  // Yield before session creation — ONNX copies to WASM heap, biggest memory spike
+  await yieldToMain();
+
+  // Create ONNX session with reduced optimization for lower memory on mobile
   try {
-    onnxSession = await ort.InferenceSession.create(buffer, {
+    const sessionOptions = {
       executionProviders: ['wasm'],
-    });
+    };
+    // On mobile, disable graph optimization to reduce peak memory during session init
+    if (isMobile) {
+      sessionOptions.graphOptimizationLevel = 'disabled';
+    }
+    onnxSession = await ort.InferenceSession.create(modelBytes, sessionOptions);
   } catch (err) {
     console.error('[TTS] ONNX session create failed:', err);
     throw err;
+  } finally {
+    // Release the JS-side model bytes — ONNX has already copied to WASM heap
+    modelBytes = null;
   }
 
   onProgress?.(100);
