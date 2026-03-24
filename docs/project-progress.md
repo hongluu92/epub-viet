@@ -1,8 +1,8 @@
 # ReadFlow Project Progress Tracker
 
 **Project:** Vietnamese EPUB Reader with Offline TTS
-**Last Updated:** 2026-03-23 21:50
-**Current Phase:** 6.5 — iOS/Edge Stability Fixes COMPLETE
+**Last Updated:** 2026-03-24
+**Current Phase:** 6.7 — Reading Experience & iOS TTS COMPLETE
 
 ---
 
@@ -16,10 +16,11 @@ Phase 04: TTS Engine & Controls              [████████] 100% COM
 Phase 05: Firebase Auth & Sync               [████████] 100% COMPLETE
 Phase 06: Home Library & Navigation          [████████] 100% COMPLETE
 Phase 6.5: iOS/Edge Stability Fixes          [████████] 100% COMPLETE
+Phase 6.7: Reading Experience & iOS TTS      [████████] 100% COMPLETE
 Phase 07: Search Aggregator                  [░░░░░░░░] 0% PENDING
 Phase 08: PWA & Polish                       [░░░░░░░░] 0% PENDING
 
-TOTAL: 7 of 9 phases complete (78%)
+TOTAL: 8 of 10 phases complete (80%)
 ```
 
 ---
@@ -245,6 +246,60 @@ TOTAL: 7 of 9 phases complete (78%)
 
 ---
 
+### Phase 6.7: Reading Experience & iOS TTS (est. 6h)
+**Status:** ✓ COMPLETE
+**Completed:** 2026-03-24
+
+**Deliverables:**
+
+*iOS Safari TTS Fix*
+- Downgraded onnxruntime-web v1.24.3 → v1.20.1 (v1.24.3 `.mjs` import broken on iOS)
+- Quantized ONNX model: 61MB → 18MB (`public/model/nh-quantized.onnx`)
+- iOS uses HTML5 `<audio>` element for background playback (Web Audio API not allowed in bg)
+- iOS batches 5 sentences per audio chunk to reduce synthesis overhead
+- Native Web Speech API fallback available via Settings engine toggle
+
+*UX Overhaul*
+- Zustand `persist` on `library-store` for instant book re-open (<200ms warm open)
+- Deferred TTS model download to first Play tap (not reader page load)
+- CSS transitions: theme switch, book card press, chapter slide-in, TTS highlight pulse
+- Page fade-in animation; respects `prefers-reduced-motion`
+- First-time welcome hint (persisted in `app-store`)
+- Illustrated empty library CTA
+- Offline indicator banner
+- Vietnamese diacritics on all UI strings
+
+*Reading Experience*
+- Colored highlights: 4 colors × 3 themes via extended annotation model in `app-store`
+- Inline notes on annotations (popup redesign in `bookmark-popup.jsx`)
+- Reading stats: total reading time, chapters completed, daily streak (persisted in `app-store`)
+- Bookmarks page: color filters, note previews, delete buttons
+- Enhanced popup: color chips + note textarea + actions
+
+*TTS Reliability*
+- MediaSession API for lock screen / notification controls
+- Sleep timer (5/15/30/60 min) via `tts-store.sleepTimerMinutes`
+- Engine toggle in Settings: Piper AI / Hệ thống (native) / Tự động
+- Vietnamese sentence tokenizer (`vietnamese-sentence-tokenizer.js`): 200 char max, clause-only splitting
+
+*Layout*
+- Home page: Kho sách section first, Truyện của tôi below
+
+**Key Files Modified/Created:**
+- `src/lib/stores/app-store.js` — readingStats, annotation color/note, hasSeenWelcome, ttsEngine
+- `src/lib/stores/tts-store.js` — sleepTimerMinutes, preparing/pausing states
+- `src/lib/stores/library-store.js` — persist (lastReadBook/lastReadChapter), instant re-open
+- `src/lib/utils/vietnamese-sentence-tokenizer.js` — new: max 200 char tokenizer
+- `src/lib/services/tts-native-speech.js` — new: Web Speech API TTS engine
+- `src/lib/services/tts-audio-player.js` — iOS HTML5 audio path
+- `src/hooks/use-tts.js` — iOS batch synthesis, engine routing
+- `src/app/reader/reader-page-client.jsx` — MediaSession, sleep timer, deferred model load
+- `src/components/reader/bookmark-popup.jsx` — color chips + inline note editor
+- `src/app/bookmarks/page.jsx` — color filters, note previews, delete
+- `public/model/nh-quantized.onnx` — 18MB quantized model (replaces 61MB)
+
+---
+
 ### Phase 07: Search Aggregator (4h)
 **Status:** ○ PENDING
 **Blocked By:** None (can parallel with Phase 05-06)
@@ -347,20 +402,21 @@ TOTAL: 7 of 9 phases complete (78%)
 | Missing unit test coverage | HIGH | MEDIUM | Establish Jest suite in Phase 5 |
 | iOS Safari memory crash during TTS | HIGH | HIGH | ✓ FIXED: Prefetch cache cap, audio source cleanup, reduced subscriptions |
 | Edge Enhanced Protection blocks WASM | MEDIUM | MEDIUM | ✓ FIXED: WASM detection + graceful TTS disable banner |
+| onnxruntime-web .mjs import on iOS | HIGH | HIGH | ✓ FIXED: Downgraded to v1.20.1, quantized model 61MB→18MB |
 
 ---
 
 ## Browser Compatibility
 
-| Browser | Reading | TTS | Notes |
-|---------|---------|-----|-------|
-| Chrome 95+ | ✓ | ✓ | Full support |
-| Firefox 94+ | ✓ | ✓ | Full support |
-| Safari 16+ (macOS) | ✓ | ✓ | Full support |
-| Safari (iOS 16+) | ✓ | ✓ | Fixed in Phase 6.5 (memory management) |
-| Edge 95+ | ✓ | ✓ | Full support |
-| Edge (Enhanced Protection) | ✓ | ✗ | WASM blocked; shows "TTS unavailable" banner |
-| Samsung Internet | ✓ | ? | Untested |
+| Browser | Reading | TTS (AI) | TTS (Native) | Notes |
+|---------|---------|----------|--------------|-------|
+| Chrome 95+ | ✓ | ✓ | ✓ | Full support |
+| Firefox 94+ | ✓ | ✓ | ✓ | Full support |
+| Safari 16+ (macOS) | ✓ | ✓ | ✓ | Full support |
+| Safari (iOS 16+) | ✓ | ✓ | ✓ | onnxruntime-web v1.20.1 + HTML5 audio path; batch 5 sentences |
+| Edge 95+ | ✓ | ✓ | ✓ | Full support |
+| Edge (Enhanced Protection) | ✓ | ✗ | ✓ | WASM blocked; auto-falls back to native or shows banner |
+| Samsung Internet | ✓ | ? | ✓ | AI TTS untested |
 
 ---
 
@@ -397,7 +453,9 @@ Phase 03 (8h) ├──→ Phase 04 (6.5h) ─┐
 | Phase 04 | 6h | 6.5h | +0.5h | Code review fixes |
 | Phase 05 | 4h | 4h | 0h | On schedule |
 | Phase 06 | 5h | 5h | 0h | On schedule |
-| **Total** | **33h** | **33.5h** | **+0.5h** | **99% efficiency** |
+| Phase 6.5 | 3h | 3h | 0h | iOS/Edge fixes |
+| Phase 6.7 | 6h | ~6h | 0h | Reading exp. + iOS TTS |
+| **Total** | **42h** | **~42.5h** | **+0.5h** | **99% efficiency** |
 
 ---
 
@@ -483,14 +541,14 @@ Phase 03 (8h) ├──→ Phase 04 (6.5h) ─┐
 
 ## Communication Summary
 
-**Project Status:** On track (75% complete, 33.5h of 40h used)
+**Project Status:** On track (80% complete, ~42.5h used)
 
 **Key Achievements:**
-- 6 phases complete (foundation, EPUB, UI, TTS, auth, library)
-- Build passes with zero warnings
-- Code review approved
-- Full TTS pipeline with Firebase sync
-- Library UI with responsive navigation
+- 8 phases complete (foundation, EPUB, UI, TTS, auth, library, iOS/Edge fixes, reading experience)
+- iOS Safari TTS fully functional (onnxruntime-web v1.20.1, quantized model 18MB, HTML5 audio)
+- Colored annotations, inline notes, reading stats, sleep timer, MediaSession
+- Instant book re-open via Zustand persist
+- Vietnamese sentence tokenizer + native TTS fallback
 
 **Next Phase:** Search Aggregator (Phase 07, 4h estimated)
 
@@ -500,6 +558,6 @@ Phase 03 (8h) ├──→ Phase 04 (6.5h) ─┐
 
 ---
 
-*Last Updated: 2026-03-08 21:59*
-*Progress: 6/8 phases (75%)*
-*Effort: 33.5/40h (84%)*
+*Last Updated: 2026-03-24*
+*Progress: 8/10 phases (80%)*
+*Effort: ~45h used, Phase 07+08 remaining*

@@ -138,24 +138,48 @@ ReadFlow: Vietnamese offline-first EPUB reader with TTS, Firebase sync, and sear
   - Actions: play, pause, resume, stop, setPosition
 
 **Dependencies:**
-- `onnxruntime-web@1.24.3` - ONNX inference
+- `onnxruntime-web@1.20.1` - ONNX inference (v1.24.3 avoided: iOS Safari .mjs import broken)
 - `piper-wasm@0.1.4` - Phonemization
 - Piper WASM files in `public/piper/` (~17.7 MB)
 
 **Configuration:**
-- Model URL: `https://cdn.jsdelivr.net/gh/kiwiupover/book-tts-3@main/model/nh.onnx`
-- Config URL: `https://cdn.jsdelivr.net/gh/kiwiupover/book-tts-3@main/model/nh.onnx.json`
+- Local quantized model: `public/model/nh-quantized.onnx` (18MB, replaces 61MB CDN model)
+- Config: `public/model/nh.onnx.json`
 - Cache: `readflow-tts-model-v1`
 
-### Phase 5: Firebase Auth & Sync (PENDING)
+**iOS Audio Path:**
+- iOS Safari cannot use Web Audio API for background playback
+- `tts-audio-player.js` detects iOS and routes to HTML5 `<audio>` element
+- `use-tts.js` batches 5 sentences per chunk on iOS, concatenates PCM, creates Blob URL
+- piper-wasm phonemization works on iOS with v1.20.1 runtime
+
+**Engine Selection (`ttsEngine` in app-store):**
+| Value | Behavior |
+|-------|----------|
+| `'auto'` | ONNX/Piper on desktop; native Web Speech on iOS |
+| `'onnx'` | Force Piper AI engine |
+| `'native'` | Force Web Speech API (`tts-native-speech.js`) |
+
+### Phase 5: Firebase Auth & Sync (COMPLETE)
 - Google OAuth login via Firebase Auth
 - Firestore sync for reading progress, bookmarks
-- Error boundaries and retry logic
+- `firebase-config.js`, `firebase-auth-service.js`, `firebase-sync-service.js`
 
-### Phase 6: Library & Navigation (PENDING)
-- File upload (EPUB selection)
-- Book metadata management
-- Library view with search/filter
+### Phase 6: Library & Navigation (COMPLETE)
+- Home page with Kho sách / Truyện của tôi sections
+- Book cards, upload modal, bottom nav, sidebar
+- `library-store` with Zustand persist for instant re-open
+
+### Phase 6.5: iOS/Edge Stability (COMPLETE)
+- iOS Safari memory crash fixed (prefetch cache cap, audio cleanup)
+- Edge Enhanced Protection: WASM detection + TTS unavailable banner
+
+### Phase 6.7: Reading Experience & iOS TTS (COMPLETE)
+- iOS TTS: onnxruntime-web v1.20.1 + HTML5 audio + 18MB quantized model
+- Colored annotations (4 colors), inline notes, reading stats, sleep timer
+- MediaSession API, engine toggle, offline banner, welcome hint
+- Vietnamese sentence tokenizer (`vietnamese-sentence-tokenizer.js`)
+- Native Web Speech API fallback (`tts-native-speech.js`)
 
 ### Phase 7: Search Aggregator (PENDING)
 - Proxy timsach.vn search API
@@ -163,31 +187,38 @@ ReadFlow: Vietnamese offline-first EPUB reader with TTS, Firebase sync, and sear
 - Results aggregation and ranking
 
 ### Phase 8: PWA & Polish (PENDING)
-- Manifest.json for installable app
-- Service Worker for offline support
-- Performance optimization
+- `manifest.json` present; Service Worker (`sw.js`) scaffolded
+- Performance optimization, PWA icons finalize
 
 ## Data Flow
 
 ### TTS Playback Flow
 ```
-User taps Play (sentence array + position)
+User taps Play
+  ↓
+Engine selection (app-store.ttsEngine: auto | onnx | native)
+  ↓
+[ONNX path]                          [Native path]
+loadModel() — deferred to first      tts-native-speech.js
+play; model cached in               Web Speech API utterances
+Cache Storage API
   ↓
 useTts.play({ sentences, startIndex })
   ↓
-loadModel() - ensure ONNX model loaded to Cache Storage
-  ↓
-For each sentence:
-  1. textToPhonemeIds(sentence) via piper-wasm
-  2. inferAudio(phonemeIds, speed) via ONNX
-  3. playBuffer(audioData) via Web Audio API
-  4. Prefetch next sentence async (2-sentence queue)
+For each sentence (desktop/ONNX):         For each chunk (iOS batch=5):
+  1. tokenize via vietnamese-sentence-      1. Batch 5 sentences
+     tokenizer.js (max 200 chars)           2. Synthesize all PCMs
+  2. textToPhonemeIds() via piper-wasm      3. Concatenate → Blob URL
+  3. inferAudio() via ONNX runtime          4. Play via <audio> element
+  4. playBuffer() via Web Audio API
+  5. Prefetch next (2-sentence queue)
   ↓
 On sentence end:
-  - Update tts-store position (chapter, para, sentence)
-  - Highlight sentence span in reader
+  - Update tts-store position
+  - Highlight sentence span (color per annotation)
   - Auto-scroll to keep visible
-  - Load next chapter if at boundary
+  - MediaSession playbackState sync
+  - Check sleep timer (sleepTimerMinutes)
   ↓
 On pause/stop:
   - Preserve position in tts-store
@@ -223,8 +254,10 @@ On reader open:
 
 **TTS Pipeline:**
 - piper-wasm (text → phoneme)
-- ONNX Runtime Web (inference)
-- Web Audio API (playback)
+- ONNX Runtime Web v1.20.1 (inference)
+- Web Audio API (desktop playback)
+- HTML5 `<audio>` element (iOS background playback)
+- Web Speech API (native fallback via `tts-native-speech.js`)
 
 **Storage:**
 - IndexedDB (book data, cache)
@@ -283,5 +316,5 @@ On reader open:
 
 ---
 
-*Last updated: 2026-03-08*
-*Phase 4 (TTS Engine) complete*
+*Last updated: 2026-03-24*
+*Phase 6.7 (Reading Experience & iOS TTS) complete*

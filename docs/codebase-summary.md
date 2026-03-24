@@ -2,8 +2,8 @@
 
 **Project:** Vietnamese EPUB Reader with Offline TTS
 **Framework:** Next.js 15 + React 19 + Tailwind CSS
-**State:** Phase 4 Complete (TTS Engine)
-**Last Updated:** 2026-03-08
+**State:** Phase 6.7 Complete (Reading Experience & iOS TTS)
+**Last Updated:** 2026-03-24
 
 ## Directory Structure
 
@@ -34,13 +34,15 @@ book-tts-3/
 │   │       └── theme-switcher.jsx       # Light/dark/sepia toggle
 │   │
 │   ├── hooks/
-│   │   ├── use-tts.js                   # TTS orchestration hook (phase 4)
-│   │   │   ├── loadModel()              # Load ONNX model with progress
-│   │   │   ├── play()                   # Play sentence array
+│   │   ├── use-tts.js                   # TTS orchestration hook; iOS batch path
+│   │   │   ├── loadModel()              # Load ONNX model with progress (deferred)
+│   │   │   ├── play()                   # Play sentence array (desktop or iOS batch)
 │   │   │   ├── pause()/resume()/stop()  # Playback control
 │   │   │   └── clearPrefetchCache()     # Manual cache management
 │   │   │
-│   │   └── use-epub-parser.js           # EPUB parsing hook (phase 2)
+│   │   ├── use-epub-parser.js           # EPUB parsing hook
+│   │   ├── use-auth.js                  # Firebase auth state
+│   │   └── use-keyboard-shortcuts.js    # Reader keyboard shortcuts
 │   │
 │   ├── lib/
 │   │   ├── services/
@@ -48,23 +50,23 @@ book-tts-3/
 │   │   │   ├── indexed-db-service.js    # Browser database operations
 │   │   │   ├── search-service.js        # Full-text search engine (phase 7)
 │   │   │   │
-│   │   │   ├── tts-model-loader.js      # Load ONNX model from CDN (phase 4)
-│   │   │   ├── tts-phonemizer.js        # Text → phoneme IDs (phase 4)
-│   │   │   ├── tts-inference.js         # Phoneme → audio PCM (phase 4)
-│   │   │   ├── tts-audio-player.js      # Web Audio playback (phase 4)
-│   │   │   └── tts-engine.js            # TTS facade (phase 4)
+│   │   │   ├── tts-model-loader.js      # Load ONNX model; deferred to first play
+│   │   │   ├── tts-phonemizer.js        # Text → phoneme IDs (piper-wasm)
+│   │   │   ├── tts-inference.js         # Phoneme → audio PCM (ONNX)
+│   │   │   ├── tts-audio-player.js      # Web Audio (desktop) + HTML5 audio (iOS)
+│   │   │   ├── tts-native-speech.js     # Web Speech API fallback engine
+│   │   │   └── tts-engine.js            # TTS facade
 │   │   │
 │   │   ├── stores/
-│   │   │   ├── app-store.js             # Theme, UI settings, TTS speed
-│   │   │   ├── reader-store.js          # Current book, chapter, scroll
-│   │   │   ├── library-store.js         # Uploaded books metadata
-│   │   │   ├── tts-store.js             # Playback state (phase 4)
-│   │   │   └── auth-store.js            # User session (phase 5)
+│   │   │   ├── app-store.js             # Theme, settings, ttsEngine, readingStats, annotations (persist)
+│   │   │   ├── library-store.js         # Books; persist lastReadBook for instant re-open
+│   │   │   └── tts-store.js             # Playback, sleepTimerMinutes, ttsUnavailable
 │   │   │
 │   │   └── utils/
-│   │       ├── phoneme-id-map.js        # 161 Vietnamese phoneme IDs (phase 4)
-│   │       ├── format-text.js           # Text formatting utilities
-│   │       └── validators.js            # Input validation
+│   │       ├── phoneme-id-map.js            # 161 Vietnamese phoneme IDs
+│   │       ├── vietnamese-sentence-tokenizer.js # Max 200 char sentence splitter
+│   │       ├── theme-tokens.js              # CSS variable token map
+│   │       └── prefetch-onnx.js             # ONNX model prefetch utility
 │   │
 │   ├── styles/
 │   │   └── globals.css                  # Tailwind imports + CSS vars (themes)
@@ -167,11 +169,21 @@ book-tts-3/
 - Abort signal for cleanup
 - Exports: `loadModel()`, `play()`, `pause()`, `resume()`, `stop()`, `clearPrefetchCache()`, state variables
 
-**TTS Store** (`src/lib/stores/tts-store.js`) - 36 lines
+**Vietnamese Sentence Tokenizer** (`src/lib/utils/vietnamese-sentence-tokenizer.js`)
+- Splits text into sentences, max 200 chars per sentence
+- Clause-only splitting (avoids mid-word breaks)
+- Used by use-tts.js before phonemization
+
+**Native Speech Service** (`src/lib/services/tts-native-speech.js`)
+- Web Speech API wrapper for native TTS fallback
+- Activated when ttsEngine = 'native' or 'auto' on iOS and WASM unavailable
+
+**TTS Store** (`src/lib/stores/tts-store.js`)
 - Zustand store for TTS state
-- State: isPlaying, isPaused, currentChapter/Paragraph/Sentence
-- State: modelLoaded, modelLoading, modelProgress
-- Actions: setters for all state properties
+- State: isPlaying, isPaused, preparing, pausing, currentChapter/Paragraph/Sentence/FlatIndex
+- State: modelLoaded, modelLoading, modelProgress, ttsUnavailable, ttsUnavailableReason
+- State: sleepTimerMinutes (null = off; 5/15/30/60 options)
+- Actions: setPlaying, setPaused, setPreparing, setPosition, setSleepTimer, reset
 
 ### Reader Components (Phase 3 - COMPLETE)
 
@@ -197,27 +209,20 @@ book-tts-3/
 
 ### State Management
 
-**app-store.js**
-- Theme (light/dark/sepia)
-- UI settings (sidebar visible, etc)
-- TTS settings: ttsSpeed (0.5x - 2x), ttsVoice (for Phase 5+)
+**app-store.js** (persisted via Zustand persist)
+- Theme (light/dark/sepia), fontSize, fontFamily, lineHeight, readerMargin
+- TTS settings: ttsSpeed, ttsVoice, ttsEngine ('auto'|'onnx'|'native')
+- hasSeenWelcome (first-time hint flag)
+- readingStats: { totalReadingMs, chaptersCompleted, currentStreak, lastReadDate }
+- bookmarks array (annotations): { bookId, chapterIndex, paragraphIndex, sentenceIndex, text, color, note, createdAt }
 
-**reader-store.js**
-- currentBookId, currentChapterId
-- currentScrollPosition
-- Methods: setBook(), setChapter(), setScroll()
+**library-store.js** (partially persisted: lastReadBook, lastReadChapter only)
+- books array with cloud merge support
+- lastReadBook/lastReadChapter for <200ms warm re-open
+- Methods: loadBooks(), addBook(), removeBook(), mergeCloudBooks(), updateBookProgress(), setLastRead()
 
-**library-store.js**
-- books array (uploaded EPUB metadata)
-- Methods: addBook(), removeBook(), searchBooks()
-
-**tts-store.js**
-- Playback: isPlaying, isPaused, currentChapter/Paragraph/Sentence
-- Model: modelLoaded, modelLoading, modelProgress
-- Methods: setIsPlaying(), setPosition(), setModelLoaded(), etc
-
-**auth-store.js** (Phase 5)
-- currentUser, isAuthenticated, session
+**tts-store.js** (not persisted — ephemeral playback state)
+- Playback + model + sleep timer state (see module description above)
 
 ### Data Services
 
@@ -297,7 +302,7 @@ book-tts-3/
     "react-dom": "^19.2.4",
     "zustand": "^5.0.11",
     "tailwindcss": "^3.4.1",
-    "onnxruntime-web": "^1.24.3",
+    "onnxruntime-web": "^1.20.1",
     "piper-wasm": "^0.1.4"
   },
   "devDependencies": {
@@ -347,8 +352,9 @@ npm run lint      # Run ESLint
 
 **Bundle Size:**
 - App code: ~150KB (gzipped)
-- ONNX model: ~17.7MB (cached in Cache Storage)
-- Total first load: ~17.8MB (only once, then cached)
+- ONNX quantized model: ~18MB at `public/model/nh-quantized.onnx` (down from 61MB CDN model)
+- Piper WASM: ~17.7MB at `public/piper/`
+- Total first load: ~18MB model (only once, then cached)
 
 ## Known Limitations & Future Work
 
@@ -374,5 +380,5 @@ npm run lint      # Run ESLint
 
 ---
 
-*Last updated: 2026-03-08*
-*Phase 4 (TTS Engine) complete, Phase 5 pending*
+*Last updated: 2026-03-24*
+*Phase 6.7 (Reading Experience & iOS TTS) complete*
