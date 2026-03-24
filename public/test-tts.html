@@ -14,8 +14,10 @@
 <body>
   <h2>TTS iOS Debug</h2>
   <p id="info"></p>
-  <button onclick="testStep1()">1a. ONNX (CDN WASM)</button>
-  <button onclick="testStep1b()">1b. ONNX (Local WASM)</button>
+  <button onclick="testStep1()">1a. v1.24.3 (CDN)</button>
+  <button onclick="testStep1b()">1b. v1.24.3 (Local)</button>
+  <button onclick="testStep1c()">1c. v1.17.1 (CDN)</button>
+  <button onclick="testStep1d()">1d. v1.20.1 (CDN)</button>
   <button onclick="testStep2()">2. Load Model (URL)</button>
   <button onclick="testStep3()">3. Load Model (IndexedDB)</button>
   <button onclick="testStep4()">4. Short Inference (10 chars)</button>
@@ -63,6 +65,34 @@
       log(`  Memory: ${(performance.memory?.usedJSHeapSize/1024/1024||0).toFixed(1)}MB`);
     } catch (e) {
       log(`✗ ${e.message}`, 'err');
+    }
+  };
+
+  // Step 1c: Try older version 1.17.1 (known iOS compatible)
+  window.testStep1c = async () => {
+    try {
+      log('Loading onnxruntime-web v1.17.1...');
+      const t0 = performance.now();
+      ort = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/+esm');
+      ort.env.wasm.numThreads = 1;
+      ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/';
+      log(`✓ v1.17.1 loaded in ${(performance.now()-t0).toFixed(0)}ms`, 'ok');
+    } catch (e) {
+      log(`✗ v1.17.1: ${e.message}`, 'err');
+    }
+  };
+
+  // Step 1d: Try version 1.20.1
+  window.testStep1d = async () => {
+    try {
+      log('Loading onnxruntime-web v1.20.1...');
+      const t0 = performance.now();
+      ort = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/+esm');
+      ort.env.wasm.numThreads = 1;
+      ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/';
+      log(`✓ v1.20.1 loaded in ${(performance.now()-t0).toFixed(0)}ms`, 'ok');
+    } catch (e) {
+      log(`✗ v1.20.1: ${e.message}`, 'err');
     }
   };
 
