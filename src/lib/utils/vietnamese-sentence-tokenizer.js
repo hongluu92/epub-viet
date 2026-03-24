@@ -12,8 +12,7 @@
  */
 
 /** Sentences longer than this get split further on clause boundaries.
- * 200 chars accommodates most Vietnamese novel sentences without forced mid-phrase cuts.
- * ONNX inference handles up to ~300 chars efficiently. */
+ * 200 chars accommodates most Vietnamese novel sentences without forced mid-phrase cuts. */
 const MAX_SENTENCE_CHARS = 200;
 
 /**
