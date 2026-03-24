@@ -152,11 +152,11 @@ export default function SettingsPage() {
           </div>
         </SettingsRow>
       </SettingsCard>
-      {ttsEngine === 'auto' && (
-        <p className="text-[10px] px-4 mt-1" style={{ color: 'var(--text-muted)' }}>
-          Tự động: Hệ thống trên iOS, Piper AI trên máy tính
-        </p>
-      )}
+      <p className="text-[10px] px-4 mt-1" style={{ color: 'var(--text-muted)' }}>
+        {ttsEngine === 'auto' ? 'Tự động: Hệ thống trên iOS, Piper AI trên máy tính'
+          : ttsEngine === 'onnx' ? '⚠ Piper AI có thể không ổn định trên iOS'
+          : 'Dùng giọng đọc có sẵn của trình duyệt'}
+      </p>
 
       {/* Thống kê đọc */}
       <SectionHeader title="Thống kê" />

@@ -28,8 +28,8 @@ function shouldUseNative() {
   const engine = useAppStore.getState().ttsEngine;
   if (engine === 'native') return true;
   if (engine === 'onnx') return false;
-  // 'auto': use ONNX everywhere (with iOS-safe short sentences)
-  return false;
+  // 'auto': native on iOS (ONNX WASM crashes), ONNX on desktop/Android
+  return IS_IOS && isNativeSpeechAvailable();
 }
 
 const PREFETCH_AHEAD = IS_IOS ? 1 : 2;
